@@ -13,6 +13,20 @@ docs/assets/licitaciones-listado.png
 docs/assets/dashboard.png
 ```
 
+## Modulo Ordenes de Compra
+
+La app incluye una seccion `/ordenes-compra` para consultar compras reales del Estado desde Mercado Publico.
+
+Endpoints:
+
+| Endpoint | Uso |
+| --- | --- |
+| `GET /api/purchase-orders` | Listado paginado y filtrado por `codigo`, `fecha`, `estado`, `q`, `comprador`, `proveedor` |
+| `GET /api/purchase-orders/[code]` | Detalle normalizado |
+| `GET /api/purchase-orders/[code]/full` | Detalle normalizado + respuesta cruda + cache |
+
+El modulo reutiliza Supabase cache, rate limiting y `api_request_log`. Los recursos registrados son `purchase_orders:list` y `purchase_orders:detail`.
+
 ## Tecnologías
 
 - Next.js App Router

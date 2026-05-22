@@ -1,9 +1,9 @@
 import { statusLabel } from "@/lib/mercado-publico/status";
 import { Badge } from "@/components/ui/badge";
 
-export function StatusBadge({ status }: { status?: string }) {
+export function StatusBadge({ status, label }: { status?: string; label?: string }) {
   const variant = getVariant(status);
-  return <Badge variant={variant}>{statusLabel(status)}</Badge>;
+  return <Badge variant={variant}>{label ?? statusLabel(status)}</Badge>;
 }
 
 function getVariant(status?: string): "default" | "success" | "warning" | "danger" | "muted" {

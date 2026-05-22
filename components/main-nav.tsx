@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { BarChart3, Search } from "lucide-react";
+import { BarChart3, Search, ShoppingCart } from "lucide-react";
 import { clsx } from "clsx";
 
 const navItems = [
   { href: "/licitaciones", label: "Licitaciones", icon: Search },
+  { href: "/ordenes-compra", label: "Ordenes", icon: ShoppingCart },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 }
 ] as const;
 
@@ -25,7 +27,7 @@ export function MainNav() {
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={item.href as Route}
             className={clsx(
               "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
               isActive

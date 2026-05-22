@@ -10,6 +10,22 @@ export function formatCurrency(value?: number) {
   }).format(value);
 }
 
+export function formatCLP(value?: number, currency = "CLP") {
+  if (value === undefined) {
+    return "No especificado";
+  }
+
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: currency || "CLP",
+    maximumFractionDigits: currency === "CLP" ? 0 : 2
+  }).format(value);
+}
+
+export function formatDate(value?: string) {
+  return formatShortDate(value);
+}
+
 export function formatTenderAmount(amount?: number, amountText?: string) {
   if (amountText) {
     return amountText;
@@ -49,4 +65,19 @@ export function formatShortDate(value?: string) {
     month: "short",
     year: "numeric"
   }).format(date);
+}
+
+export function normalizeHtmlEntities(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
 }

@@ -13,10 +13,11 @@ const RATE_LIMIT_SAFETY_RATIO = 0.95;
 type MercadoPublicoFormat = "json";
 type MercadoPublicoResource = "licitaciones" | "ordenesdecompra";
 type MercadoPublicoEmpresaEndpoint = "BuscarComprador" | "BuscarProveedor";
-type CacheResource = MercadoPublicoResource | MercadoPublicoEmpresaEndpoint;
+type CacheResource = MercadoPublicoResource | MercadoPublicoEmpresaEndpoint | "purchase_orders:list" | "purchase_orders:detail";
 
 export type MercadoPublicoRequest = {
   resource: MercadoPublicoResource;
+  cacheResource?: CacheResource;
   params?: Record<string, string | undefined>;
   cacheTtlSeconds?: number;
   cacheStrategy?: "cache-first" | "network-only";
@@ -61,8 +62,11 @@ export async function getLicitacionCompleta(codigo: string) {
 }
 
 export async function searchOrdenesCompra(params: Record<string, string | undefined> = {}) {
+  const cacheResource = params.codigo ? "purchase_orders:detail" : "purchase_orders:list";
+
   return mercadoPublicoRequest<MercadoPublicoResponse>({
     resource: "ordenesdecompra",
+    cacheResource,
     params,
     cacheTtlSeconds: getDefaultCacheTtlSeconds()
   });
@@ -86,6 +90,7 @@ export async function buscarProveedores(texto: string) {
 
 export async function mercadoPublicoRequest<T>({
   resource,
+  cacheResource,
   params = {},
   cacheTtlSeconds = getDefaultCacheTtlSeconds(),
   cacheStrategy = "cache-first"
@@ -95,7 +100,7 @@ export async function mercadoPublicoRequest<T>({
   const url = buildPublicUrl(resource, "json", requestParams);
 
   return executeMercadoPublicoRequest<T>({
-    resource,
+    resource: cacheResource ?? resource,
     apiParams,
     url,
     cacheTtlSeconds,

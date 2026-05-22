@@ -164,6 +164,33 @@ Respuesta JSON esperada, resumida:
 }
 ```
 
+### Implementacion en la app
+
+Endpoints internos:
+
+| Endpoint | Uso |
+| --- | --- |
+| `GET /api/purchase-orders` | Listado paginado con filtros `codigo`, `fecha`, `estado`, `q`, `comprador`, `proveedor`. |
+| `GET /api/purchase-orders/[code]` | Detalle normalizado por codigo. |
+| `GET /api/purchase-orders/[code]/full` | Detalle normalizado, respuesta cruda y metadata de cache. |
+
+Recursos de cache/log:
+
+| Resource | Uso |
+| --- | --- |
+| `purchase_orders:list` | Listados de ordenes de compra. |
+| `purchase_orders:detail` | Detalle por codigo. |
+
+Campos normalizados en detalle:
+
+- comprador: `Comprador.NombreOrganismo`, `CodigoOrganismo`, `NombreUnidad`, `ComunaUnidad`, `RegionUnidad`, `Actividad`, `NombreContacto`.
+- proveedor: `Proveedor.Nombre`, `Codigo`, `RutSucursal`, `Comuna`, `Region`, `Actividad`.
+- montos: `TotalNeto`, `PorcentajeIva`, `Impuestos`, `Total`, `TipoMoneda`.
+- fechas: `Fechas.FechaCreacion`, `FechaEnvio`, `FechaAceptacion`, `FechaCancelacion`.
+- items: `Items.Listado[].Categoria`, `Producto`, `EspecificacionComprador`, `Cantidad`, `Moneda`, `PrecioNeto`.
+
+Los nombres de proveedor se limpian con `normalizeHtmlEntities()` porque Mercado Publico puede devolver entidades como `SOCIEDAD M&amp;F SPA`.
+
 ## Organismos compradores
 
 La documentación pública de ChileCompra referencia búsquedas de empresas compradoras bajo:

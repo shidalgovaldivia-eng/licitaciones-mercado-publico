@@ -68,6 +68,22 @@ Lectura y validación de variables de entorno.
 - `types.ts`: tipos de licitaciones y respuestas.
 - `normalizers.ts`: limpieza de datos crudos.
 - `status.ts`: labels de estados.
+
+## Modulo Ordenes de Compra
+
+Archivos agregados para compras reales del Estado:
+
+- `app/ordenes-compra/page.tsx`: listado visual.
+- `app/ordenes-compra/[code]/page.tsx`: detalle visual.
+- `app/api/purchase-orders/route.ts`: API interna de listado.
+- `app/api/purchase-orders/[code]/route.ts`: API interna de detalle normalizado.
+- `app/api/purchase-orders/[code]/full/route.ts`: API interna con respuesta cruda.
+- `components/purchase-orders-shell.tsx`: filtros, paginacion y modos de vista.
+- `components/purchase-order-card.tsx`: tarjetas y filas compactas.
+- `services/ordenesCompra.ts`: integracion, normalizacion y estados.
+- `types/purchaseOrder.ts`: tipos normalizados.
+
+El service usa `services/mercadoPublico.ts`, por lo que hereda cache Supabase, rate limiting y `api_request_log`.
 - `client.ts`: interfaz de dominio para licitaciones.
 
 ### `lib/supabase/`
