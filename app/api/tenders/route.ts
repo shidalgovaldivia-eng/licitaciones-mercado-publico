@@ -14,11 +14,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ tenders });
   } catch (error) {
+    const status = error instanceof Error && "status" in error && error.status === 429 ? 429 : 502;
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "No fue posible consultar Mercado Público"
       },
-      { status: 502 }
+      { status }
     );
   }
 }

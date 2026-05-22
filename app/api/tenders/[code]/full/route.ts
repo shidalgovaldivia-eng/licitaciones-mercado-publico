@@ -17,11 +17,13 @@ export async function GET(_request: Request, context: RouteContext) {
 
     return NextResponse.json(detail);
   } catch (error) {
+    const status = error instanceof Error && "status" in error && error.status === 429 ? 429 : 502;
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "No fue posible consultar Mercado Público"
       },
-      { status: 502 }
+      { status }
     );
   }
 }

@@ -2,7 +2,10 @@ export const ENV_KEYS = {
   mercadoPublicoTicket: "MERCADO_PUBLICO_TICKET",
   supabaseUrl: "NEXT_PUBLIC_SUPABASE_URL",
   supabaseAnonKey: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  supabaseServiceRoleKey: "SUPABASE_SERVICE_ROLE_KEY"
+  supabaseServiceRoleKey: "SUPABASE_SERVICE_ROLE_KEY",
+  mercadoPublicoDailyLimit: "MERCADO_PUBLICO_DAILY_LIMIT",
+  mercadoPublicoCacheTtlMinutes: "MERCADO_PUBLICO_CACHE_TTL_MINUTES",
+  adminApiKey: "ADMIN_API_KEY"
 } as const;
 
 export type EnvKey = (typeof ENV_KEYS)[keyof typeof ENV_KEYS];
@@ -47,11 +50,14 @@ export function getEnvStatus() {
   const supabaseUrl = readEnv(ENV_KEYS.supabaseUrl);
   const supabaseAnonKey = readEnv(ENV_KEYS.supabaseAnonKey);
   const supabaseServiceRoleKey = readEnv(ENV_KEYS.supabaseServiceRoleKey);
+  const adminApiKey = readEnv(ENV_KEYS.adminApiKey);
 
   return {
     mercadoPublicoTicket: Boolean(mercadoPublicoTicket),
     supabaseUrl: Boolean(supabaseUrl),
     supabaseAnonKey: Boolean(supabaseAnonKey),
+    supabaseServiceRoleKey: Boolean(supabaseServiceRoleKey),
+    adminApiKey: Boolean(adminApiKey),
     validSupabaseUrl: Boolean(supabaseUrl && isValidUrl(supabaseUrl)),
     validSupabaseAnonKey: Boolean(supabaseAnonKey && !supabaseAnonKey.startsWith("http")),
     validMercadoPublicoTicket: Boolean(mercadoPublicoTicket && mercadoPublicoTicket.length >= 20),
@@ -68,6 +74,16 @@ export function getSupabaseServerEnv() {
   }
 
   return { url, serviceRoleKey };
+}
+
+export function getNumberEnv(key: EnvKey, fallback: number) {
+  const value = readEnv(key);
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export function requireSupabasePublicEnv() {
