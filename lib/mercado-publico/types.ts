@@ -14,6 +14,7 @@ export type TenderListItem = {
   region?: string;
   type?: string;
   amount?: number;
+  amountText?: string;
   publishDate?: string;
   closeDate?: string;
 };

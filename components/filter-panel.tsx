@@ -1,6 +1,9 @@
 "use client";
 
 import { Search, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { TENDER_STATUS_OPTIONS } from "@/lib/mercado-publico/status";
 
 export type Filters = {
@@ -25,82 +28,66 @@ export function FilterPanel({ filters, isLoading, onChange, onRefresh }: FilterP
   };
 
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-subtle">
-      <div className="flex items-center gap-2 text-sm font-bold text-ink">
-        <SlidersHorizontal className="h-4 w-4 text-ocean" />
-        Filtros
-      </div>
+    <Card className="shadow-subtle">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-sm font-bold text-ink">
+          <SlidersHorizontal className="h-4 w-4 text-ocean" />
+          Filtros
+        </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_180px_170px]">
-        <label className="relative block">
-          <span className="sr-only">Buscar por palabra o código</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={filters.query}
-            onChange={(event) => setValue("query", event.target.value)}
-            placeholder="Buscar por palabra, código u organismo"
-            className="h-11 w-full rounded-md border border-line bg-paper pl-10 pr-3 text-sm outline-none focus:border-ocean focus:bg-white"
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_180px_170px]">
+          <label className="relative block">
+            <span className="sr-only">Buscar por palabra o codigo</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={filters.query}
+              onChange={(event) => setValue("query", event.target.value)}
+              placeholder="Buscar por palabra, codigo u organismo"
+              className="pl-10"
+            />
+          </label>
+
+          <label>
+            <span className="sr-only">Estado</span>
+            <select
+              value={filters.status}
+              onChange={(event) => setValue("status", event.target.value)}
+              className="flex h-10 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-ocean focus:ring-2 focus:ring-ocean/15"
+            >
+              {TENDER_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <Input type="date" value={filters.date} onChange={(event) => setValue("date", event.target.value)} />
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_160px_160px_auto]">
+          <Input
+            value={filters.buyer}
+            onChange={(event) => setValue("buyer", event.target.value)}
+            placeholder="Organismo comprador"
           />
-        </label>
-
-        <label>
-          <span className="sr-only">Estado</span>
-          <select
-            value={filters.status}
-            onChange={(event) => setValue("status", event.target.value)}
-            className="h-11 w-full rounded-md border border-line bg-paper px-3 text-sm outline-none focus:border-ocean focus:bg-white"
-          >
-            {TENDER_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="sr-only">Fecha</span>
-          <input
-            type="date"
-            value={filters.date}
-            onChange={(event) => setValue("date", event.target.value)}
-            className="h-11 w-full rounded-md border border-line bg-paper px-3 text-sm outline-none focus:border-ocean focus:bg-white"
+          <Input
+            inputMode="numeric"
+            value={filters.minAmount}
+            onChange={(event) => setValue("minAmount", event.target.value)}
+            placeholder="Monto minimo"
           />
-        </label>
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <input
-          value={filters.buyer}
-          onChange={(event) => setValue("buyer", event.target.value)}
-          placeholder="Organismo comprador"
-          className="h-11 rounded-md border border-line bg-paper px-3 text-sm outline-none focus:border-ocean focus:bg-white"
-        />
-        <input
-          inputMode="numeric"
-          value={filters.minAmount}
-          onChange={(event) => setValue("minAmount", event.target.value)}
-          placeholder="Monto mínimo"
-          className="h-11 rounded-md border border-line bg-paper px-3 text-sm outline-none focus:border-ocean focus:bg-white"
-        />
-        <div className="flex gap-3">
-          <input
+          <Input
             inputMode="numeric"
             value={filters.maxAmount}
             onChange={(event) => setValue("maxAmount", event.target.value)}
-            placeholder="Monto máximo"
-            className="h-11 min-w-0 flex-1 rounded-md border border-line bg-paper px-3 text-sm outline-none focus:border-ocean focus:bg-white"
+            placeholder="Monto maximo"
           />
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="h-11 rounded-md bg-ocean px-4 text-sm font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="button" onClick={onRefresh} disabled={isLoading}>
             Buscar
-          </button>
+          </Button>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

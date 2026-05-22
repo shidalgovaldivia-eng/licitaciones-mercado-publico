@@ -64,7 +64,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     source,
     totalActiveTenders: activeTenders.length,
     closingNext48Hours: countClosingNext48Hours(activeTenders),
-    topBuyers: topBuckets(activeTenders.map((tender) => tender.buyerName || "Organismo no informado"), 8),
+    topBuyers: topBuckets(activeTenders.map((tender) => tender.buyerName || "Ver detalle para comprador"), 8),
     topStatuses: topBuckets(activeTenders.map((tender) => tender.statusLabel || "Sin estado"), 8),
     topWords: topWords(activeTenders, 12),
     closingByDate: closingByDate(activeTenders)
@@ -97,10 +97,28 @@ async function readTendersFromCache() {
 function dedupeByCode(tenders: TenderListItem[]) {
   const map = new Map<string, TenderListItem>();
   for (const tender of tenders) {
-    map.set(tender.code, tender);
+    const current = map.get(tender.code);
+    map.set(tender.code, current ? mergeTenderData(current, tender) : tender);
   }
 
   return Array.from(map.values());
+}
+
+function mergeTenderData(current: TenderListItem, next: TenderListItem): TenderListItem {
+  return {
+    ...current,
+    buyer: current.buyer?.name ? current.buyer : next.buyer,
+    buyerName: current.buyerName ?? next.buyerName,
+    buyerCode: current.buyerCode ?? next.buyerCode,
+    category: current.category ?? next.category,
+    categoryCode: current.categoryCode ?? next.categoryCode,
+    region: current.region ?? next.region,
+    type: current.type ?? next.type,
+    amount: current.amount ?? next.amount,
+    amountText: current.amountText ?? next.amountText,
+    publishDate: current.publishDate ?? next.publishDate,
+    closeDate: current.closeDate ?? next.closeDate
+  };
 }
 
 function isActiveTender(tender: TenderListItem) {

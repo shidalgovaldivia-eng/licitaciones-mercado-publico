@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const detail = await getTenderFullDetail(decodeURIComponent(code));
 
     if (!detail.tender) {
-      return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
+      return NextResponse.json({ error: "Licitacion no encontrada" }, { status: 404 });
     }
 
     return NextResponse.json(detail);
@@ -21,7 +21,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "No fue posible consultar Mercado Público"
+        error: error instanceof Error ? error.message : "No fue posible consultar Mercado Publico"
       },
       { status }
     );

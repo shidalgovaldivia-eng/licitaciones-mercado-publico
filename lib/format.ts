@@ -1,6 +1,6 @@
 export function formatCurrency(value?: number) {
   if (value === undefined) {
-    return "No informado";
+    return "Monto no especificado";
   }
 
   return new Intl.NumberFormat("es-CL", {
@@ -8,6 +8,14 @@ export function formatCurrency(value?: number) {
     currency: "CLP",
     maximumFractionDigits: 0
   }).format(value);
+}
+
+export function formatTenderAmount(amount?: number, amountText?: string) {
+  if (amountText) {
+    return amountText;
+  }
+
+  return formatCurrency(amount);
 }
 
 export function formatDateTime(value?: string) {

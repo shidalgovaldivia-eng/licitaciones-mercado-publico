@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchTenders } from "@/lib/mercado-publico/client";
+import { enrichTenderPageWithDetails, searchTenders } from "@/lib/mercado-publico/client";
 import type { TenderListItem } from "@/lib/mercado-publico/types";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const currentPage = Math.min(page, totalPages);
     const start = (currentPage - 1) * pageSize;
-    const paginated = filtered.slice(start, start + pageSize);
+    const paginated = await enrichTenderPageWithDetails(filtered.slice(start, start + pageSize));
 
     return NextResponse.json({
       tenders: paginated,

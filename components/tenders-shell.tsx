@@ -1,11 +1,15 @@
 "use client";
 
+import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Bell, BookmarkCheck, RefreshCw } from "lucide-react";
+import { AlertCircle, Bell, BookmarkCheck, LayoutGrid, List, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
 import { MainNav } from "@/components/main-nav";
-import { TenderCard } from "@/components/tender-card";
+import { TenderCard, TenderCompactRow } from "@/components/tender-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { TenderListItem } from "@/lib/mercado-publico/types";
 
 const FAVORITES_KEY = "radar-licitaciones:favorites";
@@ -18,6 +22,8 @@ const initialFilters: Filters = {
   minAmount: "",
   maxAmount: ""
 };
+
+type ViewMode = "cards" | "compact";
 
 type PaginationState = {
   page: number;
@@ -44,11 +50,9 @@ export function TendersShell() {
   const [pagination, setPagination] = useState<PaginationState>(initialPagination);
   const [page, setPage] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [favorites, setFavorites] = useState<Record<string, TenderListItem>>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
-
+    if (typeof window === "undefined") return {};
     const stored = window.localStorage.getItem(FAVORITES_KEY);
     return stored ? (JSON.parse(stored) as Record<string, TenderListItem>) : {};
   });
@@ -66,7 +70,6 @@ export function TendersShell() {
     params.set("status", appliedFilters.status);
     params.set("page", String(page));
     params.set("pageSize", String(pagination.pageSize));
-
     if (appliedFilters.date) params.set("date", appliedFilters.date);
     if (appliedFilters.query) params.set("query", appliedFilters.query);
     if (appliedFilters.buyer) params.set("buyer", appliedFilters.buyer);
@@ -80,11 +83,7 @@ export function TendersShell() {
         pagination?: PaginationState;
         error?: string;
       };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "No fue posible consultar licitaciones");
-      }
-
+      if (!response.ok) throw new Error(data.error ?? "No fue posible consultar licitaciones");
       setTenders(data.tenders ?? []);
       setPagination(data.pagination ?? initialPagination);
     } catch (fetchError) {
@@ -106,20 +105,11 @@ export function TendersShell() {
     setRefreshToken((current) => current + 1);
   }
 
-  function goToPage(nextPage: number) {
-    setPage(nextPage);
-  }
-
   function toggleFavorite(tender: TenderListItem) {
     setFavorites((current) => {
       const next = { ...current };
-
-      if (next[tender.code]) {
-        delete next[tender.code];
-      } else {
-        next[tender.code] = tender;
-      }
-
+      if (next[tender.code]) delete next[tender.code];
+      else next[tender.code] = tender;
       window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
       return next;
     });
@@ -128,15 +118,15 @@ export function TendersShell() {
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="grid gap-5 py-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <header className="grid gap-6 py-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <MainNav />
-            <p className="text-sm font-bold uppercase tracking-wide text-ocean">Mercado Público Chile</p>
+            <p className="mt-6 text-sm font-bold uppercase tracking-wide text-ocean">Mercado Publico Chile</p>
             <h1 className="mt-2 max-w-4xl text-3xl font-bold leading-tight text-ink sm:text-5xl">
-              Radar moderno para buscar y seguir licitaciones públicas
+              Radar profesional de licitaciones publicas
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-              Consulta procesos activos, filtra por organismo, monto y fecha, revisa detalles y guarda oportunidades para seguimiento.
+              Busca, filtra y prioriza oportunidades con cache, rate limiting y datos normalizados desde Mercado Publico.
             </p>
           </div>
 
@@ -146,47 +136,64 @@ export function TendersShell() {
           </div>
         </header>
 
-        <FilterPanel
-          filters={filters}
-          isLoading={isLoading}
-          onChange={setFilters}
-          onRefresh={applySearch}
-        />
+        <FilterPanel filters={filters} isLoading={isLoading} onChange={setFilters} onRefresh={applySearch} />
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-slate-600" aria-live="polite">
-                {isLoading
-                  ? "Consultando Mercado Público..."
-                  : `${pagination.total} licitaciones encontradas - página ${pagination.page} de ${pagination.totalPages}`}
-              </p>
-              <button
-                type="button"
-                onClick={applySearch}
-                disabled={isLoading}
-                className="inline-flex h-10 w-fit items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:opacity-60"
-              >
-                <RefreshCw className={clsx("h-4 w-4", isLoading && "animate-spin")} />
-                Actualizar
-              </button>
-            </div>
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-slate-600" aria-live="polite">
+                  {isLoading
+                    ? "Consultando Mercado Publico..."
+                    : `${pagination.total} licitaciones encontradas - pagina ${pagination.page} de ${pagination.totalPages}`}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+                  <Button type="button" variant="secondary" onClick={applySearch} disabled={isLoading}>
+                    <RefreshCw className={clsx("h-4 w-4", isLoading && "animate-spin")} />
+                    Actualizar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {error ? <ErrorBox message={error} onRetry={applySearch} /> : null}
 
             {isLoading ? (
-              <LoadingList />
+              <LoadingList viewMode={viewMode} />
             ) : tenders.length > 0 ? (
               <>
-                {tenders.map((tender) => (
-                  <TenderCard
-                    key={tender.code}
-                    tender={tender}
-                    isFavorite={Boolean(favorites[tender.code])}
-                    onToggleFavorite={toggleFavorite}
-                  />
-                ))}
-                <PaginationControls pagination={pagination} isLoading={isLoading} onPageChange={goToPage} />
+                {viewMode === "cards" ? (
+                  <div className="space-y-4">
+                    {tenders.map((tender) => (
+                      <TenderCard
+                        key={tender.code}
+                        tender={tender}
+                        isFavorite={Boolean(favorites[tender.code])}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="overflow-hidden">
+                    <div className="hidden grid-cols-[140px_1fr_220px_130px_44px] border-b border-line bg-paper px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+                      <span>Codigo</span>
+                      <span>Licitacion</span>
+                      <span>Comprador</span>
+                      <span>Cierre</span>
+                      <span />
+                    </div>
+                    {tenders.map((tender) => (
+                      <TenderCompactRow
+                        key={tender.code}
+                        tender={tender}
+                        isFavorite={Boolean(favorites[tender.code])}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    ))}
+                  </Card>
+                )}
+                <PaginationControls pagination={pagination} isLoading={isLoading} onPageChange={setPage} />
               </>
             ) : (
               <EmptyState />
@@ -194,14 +201,14 @@ export function TendersShell() {
           </div>
 
           <aside className="space-y-4">
-            <Panel title="Favoritos" icon={<BookmarkCheck className="h-4 w-4" />}>
+            <SidePanel title="Favoritos" icon={<BookmarkCheck className="h-4 w-4" />}>
               {favoriteCount > 0 ? (
                 <div className="space-y-3">
                   {Object.values(favorites).slice(0, 5).map((favorite) => (
                     <a
                       key={favorite.code}
                       href={`/licitaciones/${encodeURIComponent(favorite.code)}`}
-                      className="block rounded-md border border-line bg-paper p-3 hover:border-ocean"
+                      className="block rounded-lg border border-line bg-paper p-3 hover:border-ocean"
                     >
                       <p className="text-xs font-semibold text-ocean">{favorite.code}</p>
                       <p className="mt-1 line-clamp-2 text-sm font-bold text-ink">{favorite.name}</p>
@@ -210,22 +217,19 @@ export function TendersShell() {
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-slate-600">
-                  Marca licitaciones para mantener una lista rápida en este dispositivo.
+                  Marca licitaciones para mantener una lista rapida en este dispositivo.
                 </p>
               )}
-            </Panel>
+            </SidePanel>
 
-            <Panel title="Alertas" icon={<Bell className="h-4 w-4" />}>
+            <SidePanel title="Alertas" icon={<Bell className="h-4 w-4" />}>
               <p className="text-sm leading-6 text-slate-600">
-                La estructura Supabase incluida permite guardar alertas por palabra clave, estado, organismo y monto.
+                La estructura Supabase permite guardar alertas por palabra clave, estado, organismo y monto.
               </p>
-              <button
-                type="button"
-                className="mt-4 w-full rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean"
-              >
+              <Button type="button" variant="secondary" className="mt-4 w-full">
                 Crear alerta
-              </button>
-            </Panel>
+              </Button>
+            </SidePanel>
           </aside>
         </section>
       </div>
@@ -235,71 +239,85 @@ export function TendersShell() {
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-line bg-white px-4 py-3 shadow-sm">
+    <Card className="px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
-    </div>
+    </Card>
   );
 }
 
-function Panel({
-  title,
-  icon,
-  children
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function SidePanel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-line bg-white p-4 shadow-sm">
-      <h2 className="flex items-center gap-2 text-sm font-bold text-ink">
-        <span className="text-ocean">{icon}</span>
-        {title}
-      </h2>
-      <div className="mt-3">{children}</div>
-    </section>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <span className="text-ocean">{icon}</span>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function ViewToggle({ viewMode, onChange }: { viewMode: ViewMode; onChange: (mode: ViewMode) => void }) {
+  return (
+    <div className="inline-flex rounded-md border border-line bg-white p-1">
+      <Button type="button" size="sm" variant={viewMode === "cards" ? "default" : "ghost"} onClick={() => onChange("cards")}>
+        <LayoutGrid className="h-4 w-4" />
+        Tarjetas
+      </Button>
+      <Button type="button" size="sm" variant={viewMode === "compact" ? "default" : "ghost"} onClick={() => onChange("compact")}>
+        <List className="h-4 w-4" />
+        Compacto
+      </Button>
+    </div>
   );
 }
 
 function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-        <div className="min-w-0">
-          <p className="font-semibold">No fue posible cargar licitaciones</p>
-          <p className="mt-1 leading-6">{message}</p>
-          <p className="mt-1 text-red-600">
-            Revisa `MERCADO_PUBLICO_TICKET` y prueba `/api/health` si el problema persiste.
-          </p>
+    <Card className="border-red-200 bg-red-50 text-red-700" role="alert">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-semibold">No fue posible cargar licitaciones</p>
+            <p className="mt-1 text-sm leading-6">{message}</p>
+          </div>
         </div>
-      </div>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-3 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:border-red-400"
-      >
-        Reintentar
-      </button>
-    </div>
+        <Button type="button" variant="secondary" onClick={onRetry} className="mt-3">
+          Reintentar
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
-function LoadingList() {
+function LoadingList({ viewMode }: { viewMode: ViewMode }) {
+  if (viewMode === "compact") {
+    return (
+      <Card className="space-y-0 p-4">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Skeleton key={index} className="mb-3 h-10 last:mb-0" />
+        ))}
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="rounded-lg border border-line bg-white p-5">
-          <div className="h-5 w-32 animate-pulse rounded bg-slate-100" />
-          <div className="mt-4 h-6 w-4/5 animate-pulse rounded bg-slate-100" />
-          <div className="mt-3 h-4 w-full animate-pulse rounded bg-slate-100" />
-          <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-slate-100" />
+        <Card key={index} className="p-5">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="mt-4 h-6 w-4/5" />
+          <Skeleton className="mt-3 h-4 w-full" />
+          <Skeleton className="mt-2 h-4 w-2/3" />
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <div className="h-4 animate-pulse rounded bg-slate-100" />
-            <div className="h-4 animate-pulse rounded bg-slate-100" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -307,10 +325,12 @@ function LoadingList() {
 
 function EmptyState() {
   return (
-    <div className="rounded-lg border border-dashed border-line bg-white p-8 text-center">
-      <h2 className="text-lg font-bold text-ink">No hay resultados para estos filtros</h2>
-      <p className="mt-2 text-sm text-slate-600">Prueba con otra palabra, estado o fecha.</p>
-    </div>
+    <Card className="border-dashed">
+      <CardContent className="p-8 text-center">
+        <h2 className="text-lg font-bold text-ink">No hay resultados para estos filtros</h2>
+        <p className="mt-2 text-sm text-slate-600">Prueba con otra palabra, estado o fecha.</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -324,28 +344,30 @@ function PaginationControls({
   onPageChange: (page: number) => void;
 }) {
   return (
-    <nav className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm font-semibold text-slate-600">
-        Mostrando página {pagination.page} de {pagination.totalPages} - {pagination.pageSize} por página
-      </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={isLoading || !pagination.hasPreviousPage}
-          onClick={() => onPageChange(pagination.page - 1)}
-          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Anterior
-        </button>
-        <button
-          type="button"
-          disabled={isLoading || !pagination.hasNextPage}
-          onClick={() => onPageChange(pagination.page + 1)}
-          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Siguiente
-        </button>
-      </div>
-    </nav>
+    <Card>
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-600">
+          Mostrando pagina {pagination.page} de {pagination.totalPages} - {pagination.pageSize} por pagina
+        </p>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isLoading || !pagination.hasPreviousPage}
+            onClick={() => onPageChange(pagination.page - 1)}
+          >
+            Anterior
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isLoading || !pagination.hasNextPage}
+            onClick={() => onPageChange(pagination.page + 1)}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

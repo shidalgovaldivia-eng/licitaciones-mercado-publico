@@ -8,6 +8,12 @@
   color: #172026;
 }
 
+.dark {
+  color-scheme: dark;
+  background: #0f171a;
+  color: #f7f8f3;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -20,6 +26,13 @@ body {
     #f7f8f3;
   color: #172026;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body {
+  background:
+    linear-gradient(180deg, rgba(14, 94, 111, 0.22) 0%, rgba(15, 23, 26, 0) 360px),
+    #0f171a;
+  color: #f7f8f3;
 }
 
 button,

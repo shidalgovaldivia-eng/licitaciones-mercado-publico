@@ -233,3 +233,74 @@ Estrategia incremental recomendada:
 3. Para códigos nuevos, consultar detalle por `codigo` y cachearlo por 24 horas.
 4. Una vez al día reprocesar estados finales de los últimos 7-14 días: cerrada, adjudicada, desierta, revocada y suspendida.
 5. Persistir entidades normalizadas en tablas dedicadas cuando se agregue IA: licitaciones, organismos, proveedores, items, adjudicaciones.
+
+## Campos de listado vs detalle
+
+En las pruebas con `/api/tenders/[code]/full`, el detalle por codigo entrega mas campos que el listado diario o por estado. El listado puede venir incompleto para tarjetas, especialmente en comprador y monto.
+
+Campos frecuentes en listado:
+
+| Campo | Uso en app | Observacion |
+| --- | --- | --- |
+| `CodigoExterno` / `Codigo` | Codigo licitacion | Identificador estable para detalle. |
+| `Nombre` | Titulo | Se usa como titulo principal. |
+| `CodigoEstado` / `Estado` | Estado | Se normaliza con `statusLabel()`. |
+| `Descripcion` | Descripcion | Puede venir corta o vacia. |
+| `Fechas.FechaPublicacion` | Fecha publicacion | Cuando no existe, puede venir top-level. |
+| `Fechas.FechaCierre` | Fecha cierre | En detalle puede venir dentro de `Fechas` aunque `FechaCierre` top-level sea `null`. |
+| `Comprador` | Comprador | En listados puede faltar o venir parcial. |
+
+Campos frecuentes solo o mejor poblados en detalle:
+
+| Campo | Uso en app |
+| --- | --- |
+| `Comprador.CodigoOrganismo` | Codigo organismo comprador. |
+| `Comprador.NombreOrganismo` | Nombre organismo comprador. |
+| `Comprador.CodigoUnidad` | Codigo unidad compradora. |
+| `Comprador.NombreUnidad` | Unidad compradora. |
+| `Comprador.ComunaUnidad` | Comuna. |
+| `Comprador.RegionUnidad` | Region. |
+| `Tipo` | Tipo de licitacion, por ejemplo `LE`. |
+| `CodigoTipo` | Codigo interno del tipo. No se muestra crudo. |
+| `Estimacion` | Codigo de rango de monto. No es monto monetario. |
+| `MontoEstimado` | Monto numerico cuando Mercado Publico lo informa. Puede venir `null`. |
+| `Moneda` | Moneda del monto numerico, usualmente `CLP`. |
+| `Items.Listado` | Items solicitados, cantidades, unidad y categoria. |
+
+## Interpretacion de monto y rango
+
+Mercado Publico puede entregar el monto como numero real o como codigo interno de estimacion. La app no muestra codigos crudos como `2`.
+
+Ejemplo real de detalle:
+
+```json
+{
+  "Tipo": "LE",
+  "Moneda": "CLP",
+  "Estimacion": 2,
+  "MontoEstimado": null
+}
+```
+
+Interpretacion:
+
+| Valor | Significado UI |
+| --- | --- |
+| `Estimacion: 1` | Menor a 100 UTM |
+| `Estimacion: 2` | Entre 100 y 1000 UTM |
+| `Estimacion: 3` | Entre 1000 y 2000 UTM |
+| `Estimacion: 4` | Entre 2000 y 5000 UTM |
+| `Estimacion: 5` | Igual o superior a 5000 UTM |
+| `Tipo: LE` | Entre 100 y 1000 UTM |
+| `Tipo: LP` | Entre 1000 y 2000 UTM |
+| `Tipo: LQ` | Entre 2000 y 5000 UTM |
+| `Tipo: LR` | Igual o superior a 5000 UTM |
+
+Regla de normalizacion:
+
+1. Si existe un rango legible, se muestra como texto.
+2. Si existe `Estimacion` o `Tipo` con codigo conocido, se traduce a rango UTM.
+3. Si existe `MontoEstimado` monetario real, se muestra como CLP.
+4. Si no existe monto real ni rango interpretable, se muestra `Monto no especificado`.
+
+El listado se enriquece con detalles ya cacheados en `licitaciones_cache`. No se hace una llamada externa por cada tarjeta, para proteger la cuota diaria del ticket.
