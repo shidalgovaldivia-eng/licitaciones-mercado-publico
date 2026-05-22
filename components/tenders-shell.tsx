@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Bell, BookmarkCheck, DatabaseZap, LayoutGrid, List, RefreshCw, ShieldCheck } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
@@ -10,6 +10,7 @@ import { TenderCard, TenderCompactRow } from "@/components/tender-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isTenderIncomplete } from "@/lib/mercado-publico/completeness";
 import type { TenderListItem } from "@/lib/mercado-publico/types";
 
 const FAVORITES_KEY = "radar-licitaciones:favorites";
@@ -43,6 +44,8 @@ const initialPagination: PaginationState = {
   hasPreviousPage: false
 };
 
+const MAX_ENRICH_CODES_PER_PAGE = 20;
+
 export function TendersShell() {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
@@ -57,7 +60,9 @@ export function TendersShell() {
     return stored ? (JSON.parse(stored) as Record<string, TenderListItem>) : {};
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [enrichingCodes, setEnrichingCodes] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  const attemptedEnrichmentRef = useRef<Set<string>>(new Set());
 
   const favoriteCount = Object.keys(favorites).length;
 
@@ -86,6 +91,7 @@ export function TendersShell() {
       if (!response.ok) throw new Error(data.error ?? "No fue posible consultar licitaciones");
       setTenders(data.tenders ?? []);
       setPagination(data.pagination ?? initialPagination);
+      setEnrichingCodes({});
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Error desconocido");
       setTenders([]);
@@ -98,6 +104,83 @@ export function TendersShell() {
   useEffect(() => {
     void fetchTenders();
   }, [fetchTenders]);
+
+  useEffect(() => {
+    if (isLoading || tenders.length === 0) {
+      return;
+    }
+
+    const codes = tenders
+      .filter(isTenderIncomplete)
+      .map((tender) => tender.code)
+      .filter((code) => !attemptedEnrichmentRef.current.has(code))
+      .slice(0, MAX_ENRICH_CODES_PER_PAGE);
+
+    if (codes.length === 0) {
+      return;
+    }
+
+    for (const code of codes) {
+      attemptedEnrichmentRef.current.add(code);
+    }
+
+    let cancelled = false;
+    setEnrichingCodes((current) => ({
+      ...current,
+      ...Object.fromEntries(codes.map((code) => [code, true]))
+    }));
+
+    async function enrichVisibleTenders() {
+      try {
+        const response = await fetch("/api/tenders/enrich", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ codes })
+        });
+        const data = (await response.json()) as {
+          tenders?: TenderListItem[];
+          failed?: Array<{ code: string; error: string }>;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "No fue posible enriquecer licitaciones");
+        }
+
+        if (cancelled || !data.tenders?.length) {
+          return;
+        }
+
+        const enrichedByCode = new Map(data.tenders.map((tender) => [tender.code, tender]));
+        setTenders((current) =>
+          current.map((tender) => {
+            const enriched = enrichedByCode.get(tender.code);
+            return enriched ? mergeTenderData(tender, enriched) : tender;
+          })
+        );
+      } catch (enrichError) {
+        console.info("[tenders:enrichment]", enrichError instanceof Error ? enrichError.message : "Unknown error");
+      } finally {
+        if (!cancelled) {
+          setEnrichingCodes((current) => {
+            const next = { ...current };
+            for (const code of codes) {
+              delete next[code];
+            }
+            return next;
+          });
+        }
+      }
+    }
+
+    void enrichVisibleTenders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, tenders]);
 
   function applySearch() {
     setAppliedFilters(filters);
@@ -190,6 +273,7 @@ export function TendersShell() {
                         key={tender.code}
                         tender={tender}
                         isFavorite={Boolean(favorites[tender.code])}
+                        isEnriching={Boolean(enrichingCodes[tender.code])}
                         onToggleFavorite={toggleFavorite}
                       />
                     ))}
@@ -208,6 +292,7 @@ export function TendersShell() {
                         key={tender.code}
                         tender={tender}
                         isFavorite={Boolean(favorites[tender.code])}
+                        isEnriching={Boolean(enrichingCodes[tender.code])}
                         onToggleFavorite={toggleFavorite}
                       />
                     ))}
@@ -255,6 +340,23 @@ export function TendersShell() {
       </div>
     </main>
   );
+}
+
+function mergeTenderData(tender: TenderListItem, enriched: TenderListItem): TenderListItem {
+  return {
+    ...tender,
+    buyer: tender.buyer?.name ? tender.buyer : enriched.buyer,
+    buyerName: tender.buyerName ?? enriched.buyerName,
+    buyerCode: tender.buyerCode ?? enriched.buyerCode,
+    category: tender.category ?? enriched.category,
+    categoryCode: tender.categoryCode ?? enriched.categoryCode,
+    region: tender.region ?? enriched.region,
+    type: tender.type ?? enriched.type,
+    amount: tender.amount ?? enriched.amount,
+    amountText: tender.amountText ?? enriched.amountText,
+    publishDate: tender.publishDate ?? enriched.publishDate,
+    closeDate: tender.closeDate ?? enriched.closeDate
+  };
 }
 
 function HeroMetric({ label, value }: { label: string; value: number | string }) {

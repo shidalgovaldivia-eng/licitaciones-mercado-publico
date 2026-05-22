@@ -13,10 +13,20 @@ import type { TenderListItem } from "@/lib/mercado-publico/types";
 type TenderCardProps = {
   tender: TenderListItem;
   isFavorite: boolean;
+  isEnriching?: boolean;
   onToggleFavorite: (tender: TenderListItem) => void;
 };
 
-export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardProps) {
+export function TenderCard({ tender, isFavorite, isEnriching = false, onToggleFavorite }: TenderCardProps) {
+  const buyerValue = tender.buyerName ?? (isEnriching ? "Cargando comprador..." : "No especificado");
+  const amountValue =
+    tender.amountText || tender.amount !== undefined
+      ? formatTenderAmount(tender.amount, tender.amountText)
+      : isEnriching
+        ? "Cargando monto..."
+        : "Monto no especificado";
+  const regionValue = tender.region || tender.type || (isEnriching ? "Cargando region..." : "No especificado");
+
   return (
     <Card className="group overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-ocean/20 hover:bg-white hover:shadow-premium">
       <CardContent className="p-5 sm:p-6">
@@ -52,17 +62,19 @@ export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardP
         </p>
 
         <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-          <Meta icon={<Building2 className="h-4 w-4" />} label="Comprador" value={tender.buyerName || "Ver detalle para comprador"} />
+          <Meta icon={<Building2 className="h-4 w-4" />} label="Comprador" value={buyerValue} loading={isEnriching && !tender.buyerName} />
           <Meta icon={<CalendarClock className="h-4 w-4" />} label="Cierre" value={formatShortDate(tender.closeDate)} accent />
-          <Meta icon={<Wallet className="h-4 w-4" />} label="Monto" value={formatTenderAmount(tender.amount, tender.amountText)} />
-          <Meta icon={<MapPin className="h-4 w-4" />} label="Region / tipo" value={tender.region || tender.type || "No informado"} />
+          <Meta icon={<Wallet className="h-4 w-4" />} label="Monto" value={amountValue} loading={isEnriching && !tender.amountText && tender.amount === undefined} />
+          <Meta icon={<MapPin className="h-4 w-4" />} label="Region / tipo" value={regionValue} loading={isEnriching && !tender.region && !tender.type} />
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function TenderCompactRow({ tender, isFavorite, onToggleFavorite }: TenderCardProps) {
+export function TenderCompactRow({ tender, isFavorite, isEnriching = false, onToggleFavorite }: TenderCardProps) {
+  const buyerValue = tender.buyerName ?? (isEnriching ? "Cargando comprador..." : "No especificado");
+
   return (
     <div className="grid gap-3 border-b border-line/80 px-4 py-4 text-sm transition hover:bg-white/70 last:border-b-0 md:grid-cols-[150px_1fr_240px_135px_44px] md:items-center">
       <div className="flex flex-wrap items-center gap-2">
@@ -75,7 +87,7 @@ export function TenderCompactRow({ tender, isFavorite, onToggleFavorite }: Tende
       >
         {tender.name}
       </Link>
-      <span className="truncate text-slate-600">{tender.buyerName || "Ver detalle para comprador"}</span>
+      <span className={clsx("truncate text-slate-600", isEnriching && !tender.buyerName && "animate-pulse")}>{buyerValue}</span>
       <span className="font-medium text-ink">{formatShortDate(tender.closeDate)}</span>
       <Button
         type="button"
@@ -94,12 +106,14 @@ function Meta({
   icon,
   label,
   value,
-  accent
+  accent,
+  loading
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   accent?: boolean;
+  loading?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-line/80 bg-slate-50/70 p-3.5 transition group-hover:border-ocean/15 group-hover:bg-white">
@@ -107,7 +121,7 @@ function Meta({
         <span className="text-ocean">{icon}</span>
         {label}
       </div>
-      <p className={clsx("mt-1.5 truncate font-semibold", accent ? "text-ocean" : "text-ink")}>{value}</p>
+      <p className={clsx("mt-1.5 truncate font-semibold", accent ? "text-ocean" : "text-ink", loading && "animate-pulse text-slate-500")}>{value}</p>
     </div>
   );
 }

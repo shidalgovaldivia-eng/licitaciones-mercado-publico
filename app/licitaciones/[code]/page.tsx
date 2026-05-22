@@ -73,8 +73,8 @@ export default async function TenderDetailPage({ params }: PageProps) {
               label="Monto / rango"
               value={formatTenderAmount(tender.amount, tender.amountText)}
             />
-            <InfoCard icon={<MapPin className="h-5 w-5" />} label="Region" value={tender.region || "No informada"} />
-            <InfoCard label="Tipo" value={tender.type || "No informado"} />
+            <InfoCard icon={<MapPin className="h-5 w-5" />} label="Region" value={tender.region || "No especificada"} />
+            <InfoCard label="Tipo" value={tender.type || "No especificado"} />
           </dl>
 
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -86,10 +86,10 @@ export default async function TenderDetailPage({ params }: PageProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <DataRow label="Organismo" value={tender.buyerName || "Ver detalle para comprador"} />
-                <DataRow label="Codigo organismo" value={tender.buyerCode || "No informado"} />
-                <DataRow label="Unidad" value={tender.buyer?.unitName || "No informada"} />
-                <DataRow label="Comuna" value={tender.buyer?.commune || "No informada"} />
+                <DataRow label="Organismo" value={tender.buyerName || "No especificado"} />
+                <DataRow label="Codigo organismo" value={tender.buyerCode || "No especificado"} />
+                <DataRow label="Unidad" value={tender.buyer?.unitName || "No especificada"} />
+                <DataRow label="Comuna" value={tender.buyer?.commune || "No especificada"} />
               </CardContent>
             </Card>
 
@@ -130,8 +130,8 @@ export default async function TenderDetailPage({ params }: PageProps) {
                       className="grid gap-1 border-t border-line/80 px-4 py-4 text-sm first:border-t-0 sm:grid-cols-[1fr_120px_140px]"
                     >
                       <span className="font-medium leading-6 text-ink">{item.description}</span>
-                      <span className="text-slate-600">{item.quantity ?? "No informada"}</span>
-                      <span className="text-slate-600">{item.unit ?? "No informada"}</span>
+                      <span className="text-slate-600">{item.quantity ?? "No especificada"}</span>
+                      <span className="text-slate-600">{item.unit ?? "No especificada"}</span>
                     </div>
                   ))}
                 </div>

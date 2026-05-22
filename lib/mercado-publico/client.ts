@@ -1,12 +1,12 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServerEnv } from "@/lib/env";
+import { isTenderIncomplete } from "@/lib/mercado-publico/completeness";
 import { normalizeTenderDetail, normalizeTenderListItem } from "@/lib/mercado-publico/normalizers";
 import type { MercadoPublicoResponse, TenderDetail, TenderListItem, TenderSearchParams } from "@/lib/mercado-publico/types";
 import { getLicitacionCompleta, searchLicitaciones } from "@/services/mercadoPublico";
 
 const CACHE_TABLE = "licitaciones_cache";
-const DETAIL_ENRICHMENT_CONCURRENCY = 4;
 
 export async function searchTenders(params: TenderSearchParams = {}): Promise<TenderListItem[]> {
   const result = await searchLicitaciones(params);
@@ -34,27 +34,10 @@ export async function getTenderFullDetail(code: string) {
   };
 }
 
-export async function enrichTenderPageWithDetails(tenders: TenderListItem[]): Promise<TenderListItem[]> {
-  const shouldEnrich = tenders.some(needsDetailEnrichment);
-  if (!shouldEnrich) {
-    return tenders;
-  }
-
-  const enriched: TenderListItem[] = [];
-  for (let index = 0; index < tenders.length; index += DETAIL_ENRICHMENT_CONCURRENCY) {
-    const batch = tenders.slice(index, index + DETAIL_ENRICHMENT_CONCURRENCY);
-    const batchResult = await Promise.all(batch.map(enrichTenderWithDetail));
-    enriched.push(...batchResult);
-  }
-
-  logIncompleteTenderMetadata(enriched, "page_after_detail_enrichment");
-  return enriched;
-}
-
 async function enrichTendersFromCachedDetails(tenders: TenderListItem[]) {
   const missingCodes = new Set(
     tenders
-      .filter((tender) => !tender.buyerName || !tender.region || (!tender.amount && !tender.amountText) || !tender.type)
+      .filter(isTenderIncomplete)
       .map((tender) => tender.code)
   );
 
@@ -75,28 +58,6 @@ async function enrichTendersFromCachedDetails(tenders: TenderListItem[]) {
 
     return mergeTenderData(tender, detail);
   });
-}
-
-async function enrichTenderWithDetail(tender: TenderListItem) {
-  if (!needsDetailEnrichment(tender)) {
-    return tender;
-  }
-
-  try {
-    const detail = await getTenderDetail(tender.code);
-    return detail ? mergeTenderData(tender, detail) : tender;
-  } catch (error) {
-    console.info("[mercado-publico:normalization]", {
-      stage: "page_detail_enrichment_failed",
-      code: tender.code,
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
-    return tender;
-  }
-}
-
-function needsDetailEnrichment(tender: TenderListItem) {
-  return !tender.buyerName || !tender.region || (!tender.amount && !tender.amountText) || !tender.type;
 }
 
 function mergeTenderData(tender: TenderListItem, detail: TenderDetail): TenderListItem {
