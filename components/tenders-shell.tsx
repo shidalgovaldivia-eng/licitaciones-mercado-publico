@@ -40,7 +40,15 @@ export function TendersShell() {
 
     return tenders.filter((tender) => {
       const searchText = normalize(
-        [tender.code, tender.name, tender.description, tender.buyerName, tender.type, tender.region].join(" ")
+        [
+          tender.code,
+          tender.name,
+          tender.description,
+          tender.buyerName,
+          tender.type,
+          tender.region,
+          tender.category
+        ].join(" ")
       );
 
       const matchesQuery = !query || searchText.includes(query);
@@ -131,7 +139,7 @@ export function TendersShell() {
         <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-slate-600">
+              <p className="text-sm font-semibold text-slate-600" aria-live="polite">
                 {isLoading ? "Consultando Mercado Público..." : `${filteredTenders.length} licitaciones encontradas`}
               </p>
               <button
@@ -145,7 +153,7 @@ export function TendersShell() {
               </button>
             </div>
 
-            {error ? <ErrorBox message={error} /> : null}
+            {error ? <ErrorBox message={error} onRetry={fetchTenders} /> : null}
 
             {isLoading ? (
               <LoadingList />
@@ -232,11 +240,26 @@ function Panel({
   );
 }
 
-function ErrorBox({ message }: { message: string }) {
+function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-      <p>{message}</p>
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="min-w-0">
+          <p className="font-semibold">No fue posible cargar licitaciones</p>
+          <p className="mt-1 leading-6">{message}</p>
+          <p className="mt-1 text-red-600">
+            Revisa `MERCADO_PUBLICO_TICKET` y prueba `/api/health` si el problema persiste.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-3 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:border-red-400"
+      >
+        Reintentar
+      </button>
     </div>
   );
 }
@@ -245,7 +268,16 @@ function LoadingList() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="h-44 animate-pulse rounded-lg border border-line bg-white" />
+        <div key={index} className="rounded-lg border border-line bg-white p-5">
+          <div className="h-5 w-32 animate-pulse rounded bg-slate-100" />
+          <div className="mt-4 h-6 w-4/5 animate-pulse rounded bg-slate-100" />
+          <div className="mt-3 h-4 w-full animate-pulse rounded bg-slate-100" />
+          <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-slate-100" />
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <div className="h-4 animate-pulse rounded bg-slate-100" />
+            <div className="h-4 animate-pulse rounded bg-slate-100" />
+          </div>
+        </div>
       ))}
     </div>
   );

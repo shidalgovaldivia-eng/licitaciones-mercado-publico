@@ -6,8 +6,11 @@ export type TenderListItem = {
   description?: string;
   status: TenderStatusCode;
   statusLabel: string;
+  buyer?: TenderBuyer;
   buyerName?: string;
   buyerCode?: string;
+  category?: string;
+  categoryCode?: string;
   region?: string;
   type?: string;
   amount?: number;
@@ -25,13 +28,26 @@ export type TenderDetail = TenderListItem & {
 export type TenderLineItem = {
   id: string;
   description: string;
+  category?: string;
+  categoryCode?: string;
   quantity?: number;
   unit?: string;
+};
+
+export type TenderBuyer = {
+  code?: string;
+  name?: string;
+  unitCode?: string;
+  unitName?: string;
+  region?: string;
+  commune?: string;
 };
 
 export type TenderSearchParams = {
   status?: string;
   date?: string;
+  buyerCode?: string;
+  supplierCode?: string;
 };
 
 export type MercadoPublicoResponse = {

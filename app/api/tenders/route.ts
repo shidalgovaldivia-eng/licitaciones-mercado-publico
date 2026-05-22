@@ -7,7 +7,9 @@ export async function GET(request: Request) {
   try {
     const tenders = await searchTenders({
       status: searchParams.get("status") || "activas",
-      date: searchParams.get("date") || undefined
+      date: searchParams.get("date") || undefined,
+      buyerCode: searchParams.get("buyerCode") || undefined,
+      supplierCode: searchParams.get("supplierCode") || undefined
     });
 
     return NextResponse.json({ tenders });

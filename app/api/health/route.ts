@@ -30,7 +30,13 @@ export async function GET() {
       env,
       checks: {
         mercadoPublico,
-        supabase
+        supabase,
+        cache: {
+          ok: env.cacheEnabled,
+          message: env.cacheEnabled
+            ? "Cache Supabase habilitado con SUPABASE_SERVICE_ROLE_KEY."
+            : "Cache Supabase deshabilitado. Configura SUPABASE_SERVICE_ROLE_KEY para guardar respuestas."
+        }
       }
     },
     { status: ok ? 200 : 503 }

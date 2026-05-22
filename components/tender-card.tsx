@@ -52,8 +52,12 @@ export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardP
         <Meta icon={<Building2 className="h-4 w-4" />} text={tender.buyerName || "Organismo no informado"} />
         <Meta icon={<CalendarClock className="h-4 w-4" />} text={`Cierre: ${formatShortDate(tender.closeDate)}`} />
         <Meta icon={<Wallet className="h-4 w-4" />} text={formatCurrency(tender.amount)} />
-        <Meta icon={<Bell className="h-4 w-4" />} text={tender.type || "Tipo no informado"} />
+        <Meta icon={<Bell className="h-4 w-4" />} text={tender.category || tender.type || "Categoría no informada"} />
       </div>
+
+      {tender.region ? (
+        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{tender.region}</p>
+      ) : null}
     </article>
   );
 }
