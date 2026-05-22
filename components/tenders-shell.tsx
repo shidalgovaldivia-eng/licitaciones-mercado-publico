@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Bell, BookmarkCheck, LayoutGrid, List, RefreshCw } from "lucide-react";
+import { AlertCircle, Bell, BookmarkCheck, DatabaseZap, LayoutGrid, List, RefreshCw, ShieldCheck } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
 import { MainNav } from "@/components/main-nav";
@@ -117,34 +117,54 @@ export function TendersShell() {
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="grid gap-6 py-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <MainNav />
-            <p className="mt-6 text-sm font-bold uppercase tracking-wide text-ocean">Mercado Publico Chile</p>
-            <h1 className="mt-2 max-w-4xl text-3xl font-bold leading-tight text-ink sm:text-5xl">
-              Radar profesional de licitaciones publicas
-            </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-              Busca, filtra y prioriza oportunidades con cache, rate limiting y datos normalizados desde Mercado Publico.
-            </p>
-          </div>
+      <div className="mx-auto max-w-[1500px]">
+        <header className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7 lg:p-8">
+          <div className="relative z-10">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <MainNav />
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1.5 shadow-sm">
+                  <ShieldCheck className="h-3.5 w-3.5 text-ocean" />
+                  Ticket server-side
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1.5 shadow-sm">
+                  <DatabaseZap className="h-3.5 w-3.5 text-ocean" />
+                  Cache Supabase
+                </span>
+              </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:flex">
-            <SummaryCard label="Resultados" value={pagination.total} />
-            <SummaryCard label="Favoritos" value={favoriteCount} />
+            <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_430px] lg:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ocean">Mercado Publico Chile</p>
+                <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-6xl">
+                  Radar moderno para licitaciones publicas
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                  Busca oportunidades, compara compradores y prioriza procesos activos con datos normalizados, cache y control de cuota.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <HeroMetric label="Resultados activos" value={pagination.total} />
+                <HeroMetric label="Pagina actual" value={`${pagination.page}/${pagination.totalPages}`} />
+                <HeroMetric label="Favoritos locales" value={favoriteCount} />
+              </div>
+            </div>
           </div>
         </header>
 
-        <FilterPanel filters={filters} isLoading={isLoading} onChange={setFilters} onRefresh={applySearch} />
+        <div className="mt-5">
+          <FilterPanel filters={filters} isLoading={isLoading} onChange={setFilters} onRefresh={applySearch} />
+        </div>
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
+        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_330px]">
           <div className="space-y-4">
             <Card>
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-semibold text-slate-600" aria-live="polite">
+                <p className="text-sm font-medium text-slate-600" aria-live="polite">
                   {isLoading
-                    ? "Consultando Mercado Publico..."
+                    ? "Sincronizando datos de Mercado Publico..."
                     : `${pagination.total} licitaciones encontradas - pagina ${pagination.page} de ${pagination.totalPages}`}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -176,7 +196,7 @@ export function TendersShell() {
                   </div>
                 ) : (
                   <Card className="overflow-hidden">
-                    <div className="hidden grid-cols-[140px_1fr_220px_130px_44px] border-b border-line bg-paper px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+                    <div className="hidden grid-cols-[150px_1fr_240px_135px_44px] border-b border-line/80 bg-slate-50/80 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 md:grid">
                       <span>Codigo</span>
                       <span>Licitacion</span>
                       <span>Comprador</span>
@@ -208,23 +228,23 @@ export function TendersShell() {
                     <a
                       key={favorite.code}
                       href={`/licitaciones/${encodeURIComponent(favorite.code)}`}
-                      className="block rounded-lg border border-line bg-paper p-3 hover:border-ocean"
+                      className="block rounded-xl border border-line/80 bg-slate-50/70 p-3 transition hover:border-ocean/30 hover:bg-white"
                     >
                       <p className="text-xs font-semibold text-ocean">{favorite.code}</p>
-                      <p className="mt-1 line-clamp-2 text-sm font-bold text-ink">{favorite.name}</p>
+                      <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{favorite.name}</p>
                     </a>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-slate-600">
-                  Marca licitaciones para mantener una lista rapida en este dispositivo.
+                  Marca procesos relevantes para armar una vista corta en este dispositivo.
                 </p>
               )}
             </SidePanel>
 
             <SidePanel title="Alertas" icon={<Bell className="h-4 w-4" />}>
               <p className="text-sm leading-6 text-slate-600">
-                La estructura Supabase permite guardar alertas por palabra clave, estado, organismo y monto.
+                La base ya soporta alertas por palabra clave, estado, organismo y monto.
               </p>
               <Button type="button" variant="secondary" className="mt-4 w-full">
                 Crear alerta
@@ -237,12 +257,12 @@ export function TendersShell() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function HeroMetric({ label, value }: { label: string; value: number | string }) {
   return (
-    <Card className="px-4 py-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
-    </Card>
+    <div className="rounded-2xl border border-line/80 bg-white/75 p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-ink">{value}</p>
+    </div>
   );
 }
 
@@ -262,7 +282,7 @@ function SidePanel({ title, icon, children }: { title: string; icon: React.React
 
 function ViewToggle({ viewMode, onChange }: { viewMode: ViewMode; onChange: (mode: ViewMode) => void }) {
   return (
-    <div className="inline-flex rounded-md border border-line bg-white p-1">
+    <div className="inline-flex rounded-xl border border-line bg-white/80 p-1 shadow-sm">
       <Button type="button" size="sm" variant={viewMode === "cards" ? "default" : "ghost"} onClick={() => onChange("cards")}>
         <LayoutGrid className="h-4 w-4" />
         Tarjetas
@@ -277,7 +297,7 @@ function ViewToggle({ viewMode, onChange }: { viewMode: ViewMode; onChange: (mod
 
 function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <Card className="border-red-200 bg-red-50 text-red-700" role="alert">
+    <Card className="border-red-200 bg-red-50/90 text-red-700" role="alert">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -299,7 +319,7 @@ function LoadingList({ viewMode }: { viewMode: ViewMode }) {
     return (
       <Card className="space-y-0 p-4">
         {Array.from({ length: 8 }).map((_, index) => (
-          <Skeleton key={index} className="mb-3 h-10 last:mb-0" />
+          <Skeleton key={index} className="mb-3 h-12 last:mb-0" />
         ))}
       </Card>
     );
@@ -308,14 +328,16 @@ function LoadingList({ viewMode }: { viewMode: ViewMode }) {
   return (
     <div className="space-y-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index} className="p-5">
+        <Card key={index} className="p-6">
           <Skeleton className="h-5 w-32" />
-          <Skeleton className="mt-4 h-6 w-4/5" />
+          <Skeleton className="mt-5 h-7 w-4/5" />
           <Skeleton className="mt-3 h-4 w-full" />
           <Skeleton className="mt-2 h-4 w-2/3" />
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <Skeleton className="h-12" />
-            <Skeleton className="h-12" />
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
           </div>
         </Card>
       ))}
@@ -326,12 +348,19 @@ function LoadingList({ viewMode }: { viewMode: ViewMode }) {
 function EmptyState() {
   return (
     <Card className="border-dashed">
-      <CardContent className="p-8 text-center">
-        <h2 className="text-lg font-bold text-ink">No hay resultados para estos filtros</h2>
+      <CardContent className="p-10 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-ocean">
+          <SearchIcon />
+        </div>
+        <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">No hay resultados para estos filtros</h2>
         <p className="mt-2 text-sm text-slate-600">Prueba con otra palabra, estado o fecha.</p>
       </CardContent>
     </Card>
   );
+}
+
+function SearchIcon() {
+  return <LayoutGrid className="h-5 w-5" />;
 }
 
 function PaginationControls({
@@ -346,7 +375,7 @@ function PaginationControls({
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-semibold text-slate-600">
+        <p className="text-sm font-medium text-slate-600">
           Mostrando pagina {pagination.page} de {pagination.totalPages} - {pagination.pageSize} por pagina
         </p>
         <div className="flex gap-2">

@@ -10,15 +10,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#172026",
+        ink: "#111827",
         ocean: "#0E5E6F",
         mint: "#D8F3DC",
-        paper: "#F7F8F3",
-        line: "#DCE3DE",
-        alert: "#C2410C"
+        paper: "#F6F7FB",
+        line: "#E5E7EB",
+        alert: "#C2410C",
+        graphite: "#27272A"
       },
       boxShadow: {
-        subtle: "0 18px 45px rgba(23, 32, 38, 0.08)"
+        subtle: "0 18px 45px rgba(15, 23, 42, 0.08)",
+        premium: "0 24px 70px rgba(15, 23, 42, 0.10)"
       }
     }
   },

@@ -64,7 +64,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     source,
     totalActiveTenders: activeTenders.length,
     closingNext48Hours: countClosingNext48Hours(activeTenders),
-    topBuyers: topBuckets(activeTenders.map((tender) => tender.buyerName || "Ver detalle para comprador"), 8),
+    topBuyers: topBuckets(
+      activeTenders
+        .map((tender) => tender.buyerName)
+        .filter((buyer): buyer is string => Boolean(buyer && buyer !== "Ver detalle para comprador")),
+      8
+    ),
     topStatuses: topBuckets(activeTenders.map((tender) => tender.statusLabel || "Sin estado"), 8),
     topWords: topWords(activeTenders, 12),
     closingByDate: closingByDate(activeTenders)

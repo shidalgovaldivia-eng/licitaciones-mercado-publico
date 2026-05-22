@@ -18,17 +18,19 @@ type TenderCardProps = {
 
 export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardProps) {
   return (
-    <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:border-ocean/40 hover:shadow-subtle">
-      <CardContent className="p-5">
+    <Card className="group overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-ocean/20 hover:bg-white hover:shadow-premium">
+      <CardContent className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-paper px-2.5 py-1 text-xs font-bold text-slate-600">{tender.code}</span>
+              <span className="rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 shadow-sm">
+                {tender.code}
+              </span>
               <StatusBadge status={tender.status} />
             </div>
             <Link
               href={`/licitaciones/${encodeURIComponent(tender.code)}`}
-              className="mt-3 block text-xl font-bold leading-snug text-ink transition group-hover:text-ocean"
+              className="mt-4 block text-xl font-semibold leading-snug tracking-[-0.01em] text-ink transition group-hover:text-ocean sm:text-2xl"
             >
               {tender.name}
             </Link>
@@ -39,17 +41,17 @@ export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardP
             variant="secondary"
             aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
             onClick={() => onToggleFavorite(tender)}
-            className={clsx(isFavorite && "border-alert bg-orange-50 text-alert")}
+            className={clsx("shrink-0 rounded-xl", isFavorite && "border-alert/30 bg-orange-50 text-alert")}
           >
             <Heart className={clsx("h-5 w-5", isFavorite && "fill-current")} />
           </Button>
         </div>
 
-        <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+        <p className="mt-3 line-clamp-2 max-w-4xl text-sm leading-6 text-slate-600">
           {tender.description || "Sin descripcion disponible."}
         </p>
 
-        <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
           <Meta icon={<Building2 className="h-4 w-4" />} label="Comprador" value={tender.buyerName || "Ver detalle para comprador"} />
           <Meta icon={<CalendarClock className="h-4 w-4" />} label="Cierre" value={formatShortDate(tender.closeDate)} accent />
           <Meta icon={<Wallet className="h-4 w-4" />} label="Monto" value={formatTenderAmount(tender.amount, tender.amountText)} />
@@ -62,16 +64,19 @@ export function TenderCard({ tender, isFavorite, onToggleFavorite }: TenderCardP
 
 export function TenderCompactRow({ tender, isFavorite, onToggleFavorite }: TenderCardProps) {
   return (
-    <div className="grid gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0 md:grid-cols-[140px_1fr_220px_130px_44px] md:items-center">
+    <div className="grid gap-3 border-b border-line/80 px-4 py-4 text-sm transition hover:bg-white/70 last:border-b-0 md:grid-cols-[150px_1fr_240px_135px_44px] md:items-center">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-bold text-ocean">{tender.code}</span>
+        <span className="font-semibold text-ocean">{tender.code}</span>
         <StatusBadge status={tender.status} />
       </div>
-      <Link href={`/licitaciones/${encodeURIComponent(tender.code)}`} className="font-semibold text-ink hover:text-ocean">
+      <Link
+        href={`/licitaciones/${encodeURIComponent(tender.code)}`}
+        className="font-semibold leading-6 text-ink transition hover:text-ocean"
+      >
         {tender.name}
       </Link>
       <span className="truncate text-slate-600">{tender.buyerName || "Ver detalle para comprador"}</span>
-      <span className="font-semibold text-ink">{formatShortDate(tender.closeDate)}</span>
+      <span className="font-medium text-ink">{formatShortDate(tender.closeDate)}</span>
       <Button
         type="button"
         size="icon"
@@ -97,12 +102,12 @@ function Meta({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-paper/70 p-3">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-line/80 bg-slate-50/70 p-3.5 transition group-hover:border-ocean/15 group-hover:bg-white">
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
         <span className="text-ocean">{icon}</span>
         {label}
       </div>
-      <p className={clsx("mt-1 truncate font-semibold", accent ? "text-ocean" : "text-ink")}>{value}</p>
+      <p className={clsx("mt-1.5 truncate font-semibold", accent ? "text-ocean" : "text-ink")}>{value}</p>
     </div>
   );
 }

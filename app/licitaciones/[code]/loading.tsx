@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function TenderDetailLoading() {
   return (
     <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-5">
-        <Skeleton className="h-10 w-44" />
+      <div className="mx-auto max-w-[1280px] space-y-5">
+        <Skeleton className="h-72" />
         <Card className="p-6">
           <Skeleton className="h-5 w-36" />
           <Skeleton className="mt-5 h-10 w-4/5" />

@@ -11,31 +11,43 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="grid gap-5 py-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
+      <div className="mx-auto max-w-[1500px]">
+        <header className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7 lg:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <MainNav />
-            <p className="mt-6 text-sm font-bold uppercase tracking-wide text-ocean">Analisis operativo</p>
-            <h1 className="mt-2 max-w-4xl text-3xl font-bold leading-tight text-ink sm:text-5xl">
-              Dashboard de licitaciones activas
-            </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-              Indicadores construidos desde cache Supabase y actualizados con Mercado Publico cuando no hay datos disponibles.
-            </p>
+            <Card className="w-full lg:w-auto">
+              <CardContent className="flex items-center justify-between gap-8 p-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Fuente</p>
+                  <p className="mt-1 text-sm font-semibold text-ink">
+                    {summary.source === "supabase_cache" ? "Cache Supabase" : "Mercado Publico"}
+                  </p>
+                </div>
+                <p className="text-right text-xs leading-5 text-slate-500">{formatDateTime(summary.generatedAt)}</p>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card className="min-w-[220px]">
-            <CardContent className="p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Fuente</p>
-              <p className="mt-1 text-sm font-bold text-ink">
-                {summary.source === "supabase_cache" ? "Cache Supabase" : "Mercado Publico"}
+          <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_460px] lg:items-end">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ocean">Analisis operativo</p>
+              <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-6xl">
+                Inteligencia de licitaciones activas
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                Vista ejecutiva para entender volumen, cierres, compradores recurrentes y patrones de demanda en Mercado Publico.
               </p>
-              <p className="mt-1 text-xs text-slate-500">{formatDateTime(summary.generatedAt)}</p>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <MiniMetric label="Activas" value={summary.totalActiveTenders} />
+              <MiniMetric label="Cierran en 48h" value={summary.closingNext48Hours} />
+              <MiniMetric label="Compradores top" value={summary.topBuyers.length} />
+            </div>
+          </div>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             icon={<FileText className="h-5 w-5" />}
             label="Activas"
@@ -44,15 +56,15 @@ export default async function DashboardPage() {
           />
           <MetricCard
             icon={<CalendarClock className="h-5 w-5" />}
-            label="Cierran en 48h"
+            label="Cierre proximo"
             value={summary.closingNext48Hours}
-            helper="Oportunidades con cierre cercano"
+            helper="Oportunidades con cierre en 48 horas"
           />
           <MetricCard
             icon={<TrendingUp className="h-5 w-5" />}
             label="Organismos"
             value={summary.topBuyers.length}
-            helper="Compradores frecuentes"
+            helper="Compradores frecuentes detectados"
           />
           <MetricCard
             icon={<Database className="h-5 w-5" />}
@@ -63,7 +75,7 @@ export default async function DashboardPage() {
         </section>
 
         {summary.totalActiveTenders === 0 ? (
-          <Card className="mt-5 border-amber-200 bg-amber-50 text-amber-800">
+          <Card className="mt-5 border-amber-200 bg-amber-50/90 text-amber-800">
             <CardContent className="flex items-start gap-3 p-4 text-sm">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
@@ -85,6 +97,15 @@ export default async function DashboardPage() {
   );
 }
 
+function MiniMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-2xl border border-line/80 bg-white/75 p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-ink">{value}</p>
+    </div>
+  );
+}
+
 function MetricCard({
   icon,
   label,
@@ -97,14 +118,14 @@ function MetricCard({
   helper: string;
 }) {
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-4">
+    <Card className="overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-premium">
+      <CardContent className="p-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-          <span className="rounded-md bg-paper p-2 text-ocean">{icon}</span>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+          <span className="rounded-xl border border-line bg-slate-50 p-2 text-ocean">{icon}</span>
         </div>
-        <p className="mt-4 text-3xl font-bold text-ink">{value}</p>
-        <p className="mt-1 text-sm text-slate-600">{helper}</p>
+        <p className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-ink">{value}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{helper}</p>
       </CardContent>
     </Card>
   );
@@ -116,7 +137,7 @@ function SummaryTable({ title, rows }: { title: string; rows: SummaryBucket[] })
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-base">
           <BarChart3 className="h-5 w-5 text-ocean" />
           {title}
         </CardTitle>
@@ -127,18 +148,18 @@ function SummaryTable({ title, rows }: { title: string; rows: SummaryBucket[] })
             rows.map((row) => (
               <div key={row.label} className="grid gap-2">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="min-w-0 truncate font-semibold text-ink">{row.label}</span>
-                  <span className="shrink-0 rounded-full bg-paper px-2 py-1 text-xs font-bold text-slate-600">
+                  <span className="min-w-0 truncate font-medium text-ink">{row.label}</span>
+                  <span className="shrink-0 rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
                     {row.value}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-paper">
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-ocean" style={{ width: `${Math.max(6, (row.value / max) * 100)}%` }} />
                 </div>
               </div>
             ))
           ) : (
-            <p className="rounded-lg border border-dashed border-line bg-paper p-4 text-sm text-slate-600">
+            <p className="rounded-xl border border-dashed border-line bg-slate-50 p-4 text-sm text-slate-600">
               Sin datos suficientes.
             </p>
           )}
