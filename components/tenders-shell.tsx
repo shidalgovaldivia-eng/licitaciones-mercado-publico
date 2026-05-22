@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Bell, BookmarkCheck, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
+import { MainNav } from "@/components/main-nav";
 import { TenderCard } from "@/components/tender-card";
 import type { TenderListItem } from "@/lib/mercado-publico/types";
 
@@ -129,6 +130,7 @@ export function TendersShell() {
       <div className="mx-auto max-w-7xl">
         <header className="grid gap-5 py-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
+            <MainNav />
             <p className="text-sm font-bold uppercase tracking-wide text-ocean">Mercado Público Chile</p>
             <h1 className="mt-2 max-w-4xl text-3xl font-bold leading-tight text-ink sm:text-5xl">
               Radar moderno para buscar y seguir licitaciones públicas

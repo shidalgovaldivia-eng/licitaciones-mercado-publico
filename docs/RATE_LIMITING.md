@@ -1,100 +1,129 @@
 # Rate limiting y cache defensivo
 
-La API de Mercado Público usa un ticket con límite diario de solicitudes. La app protege ese cupo con tres capas:
+La API de Mercado Público opera con ticket y límite diario de solicitudes. La aplicación no debe consumir ese cupo innecesariamente, especialmente cuando múltiples usuarios consultan los mismos listados.
 
-1. Cache server-side en Supabase.
-2. Registro operacional de cada intento en `api_request_log`.
-3. Corte preventivo antes de llegar al límite diario configurado.
+## Objetivos
 
-## Variables de entorno
+- Proteger `MERCADO_PUBLICO_TICKET`.
+- Reducir llamadas externas.
+- Responder rápido desde cache.
+- Mantener visibilidad operacional.
+- Evitar caída total si se alcanza el límite.
 
-Configurar en Vercel para Production y Preview:
+## Componentes
+
+```mermaid
+flowchart TB
+  Request["API request interno"] --> Cache{"Cache vigente?"}
+  Cache -- Si --> Hit["Responder cache"]
+  Hit --> LogHit["api_request_log cache_hit=true"]
+  Cache -- No --> Limit{"Cerca del límite diario?"}
+  Limit -- Si --> Stale{"Cache vencido disponible?"}
+  Stale -- Si --> StaleReturn["Responder cache vencido"]
+  Stale -- No --> TooMany["429 operativo"]
+  Limit -- No --> MP["Llamar Mercado Público"]
+  MP --> Save["Guardar licitaciones_cache"]
+  Save --> LogMiss["api_request_log cache_hit=false"]
+```
+
+## Variables
 
 ```bash
-MERCADO_PUBLICO_TICKET=...
 MERCADO_PUBLICO_DAILY_LIMIT=10000
 MERCADO_PUBLICO_CACHE_TTL_MINUTES=60
-NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
-ADMIN_API_KEY=...
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` y `ADMIN_API_KEY` son solo servidor. No deben llevar prefijo `NEXT_PUBLIC`.
+## Cache
 
-## Cómo funciona
+Tabla: `public.licitaciones_cache`.
 
-Antes de llamar a Mercado Público, `services/mercadoPublico.ts`:
+Campos clave:
 
-1. Construye parámetros sin guardar el ticket en cache/log.
-2. Busca cache vigente en `licitaciones_cache`.
-3. Si hay cache vigente, devuelve cache y registra `cache_hit=true`.
-4. Si no hay cache, cuenta llamadas externas del día en `api_request_log`.
-5. Si el uso diario supera el 95% de `MERCADO_PUBLICO_DAILY_LIMIT`, no llama a Mercado Público.
-6. En ese caso devuelve cache vencido si existe.
-7. Si no hay cache vencido, responde error 429 con mensaje operativo.
-8. Si puede llamar externamente, guarda respuesta en cache y registra `cache_hit=false`.
+- `cache_key`
+- `resource`
+- `params`
+- `payload`
+- `fetched_at`
+- `expires_at`
 
-## Cache vencido
+El `ticket` nunca se guarda en `params` ni en el `cache_key`.
 
-El cache vencido es un fallback defensivo. Se usa cuando:
+## Registro de llamadas
 
-- La cuota diaria está cerca del límite.
-- Mercado Público falla y existe una respuesta anterior para la misma consulta.
+Tabla: `public.api_request_log`.
 
-La respuesta incluye metadata:
+Registra:
 
-```json
-{
-  "cache": {
-    "hit": true,
-    "stale": true
-  }
-}
+- `provider`
+- `resource`
+- `params`
+- `params_hash`
+- `status`
+- `cache_hit`
+- `error_message`
+- `created_at`
+
+La cuota diaria considera solo:
+
+```sql
+provider = 'mercado_publico'
+and cache_hit = false
+and created_at >= inicio_del_dia
 ```
 
-## Health
+## Control de llamadas
 
-Endpoint:
+Antes de una llamada externa:
+
+1. Revisar cache vigente.
+2. Si existe, devolverlo y registrar cache hit.
+3. Si no existe, contar llamadas externas del día.
+4. Si el uso supera el 95% del límite, no llamar.
+5. Intentar cache vencido.
+6. Si no existe cache vencido, devolver 429.
+
+## Fallback a cache vencido
+
+Se usa cuando:
+
+- La cuota está cerca del límite.
+- Mercado Público falla.
+- Existe una respuesta previa para los mismos parámetros.
+
+Esto permite degradación controlada en vez de romper la experiencia.
+
+## Health endpoint
 
 ```text
 GET /api/health
 ```
 
-No consulta Mercado Público para no gastar cuota. Devuelve:
+No llama a Mercado Público. Devuelve:
 
 - `ok`
 - `missingEnvVars`
 - `mercadoPublicoDailyLimit`
 - `mercadoPublicoRequestsToday`
 - `cacheEnabled`
+- estado Supabase
 
-Ejemplo:
-
-```bash
-curl "https://tu-dominio.vercel.app/api/health"
-```
-
-## Uso administrativo
-
-Endpoint:
+## Admin usage endpoint
 
 ```text
 GET /api/admin/api-usage
 ```
 
-Requiere `ADMIN_API_KEY` por header:
+Headers:
 
 ```bash
-curl "https://tu-dominio.vercel.app/api/admin/api-usage" \
-  -H "x-admin-api-key: $ADMIN_API_KEY"
+x-admin-api-key: $ADMIN_API_KEY
 ```
 
-También acepta bearer token:
+o:
 
 ```bash
-curl "https://tu-dominio.vercel.app/api/admin/api-usage" \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
+Authorization: Bearer $ADMIN_API_KEY
 ```
 
 Devuelve:
@@ -104,13 +133,18 @@ Devuelve:
 - errores hoy
 - últimas 20 llamadas
 
-## SQL requerido
+## Buenas prácticas
 
-Ejecutar `lib/supabase/schema.sql` en Supabase SQL Editor. La sección nueva crea:
+- No hacer health checks que consuman cuota externa.
+- Usar cache para dashboard y consultas repetidas.
+- Mantener TTL configurable.
+- Revisar `/api/admin/api-usage` después de publicar nuevas funcionalidades.
+- No exponer `SUPABASE_SERVICE_ROLE_KEY`.
+- No guardar tickets en logs ni cache.
 
-- `public.api_request_log`
-- índices por `provider + created_at`
-- índices por `resource + created_at`
-- índice por `params_hash`
+## Lecciones aprendidas
 
-Las policies existentes son idempotentes con `drop policy if exists`.
+- Supabase RLS no reemplaza grants; ambos importan.
+- En local algunas consultas `HEAD` pueden fallar con errores poco claros; se prefirió `GET + limit(1)` para health.
+- La paginación en la UI evita renderizar cientos de cards aunque el origen externo no pagine.
+- Vercel y local pueden diferir por variables y filesystem.
