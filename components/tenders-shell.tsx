@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Bell, BookmarkCheck, RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
@@ -18,9 +18,31 @@ const initialFilters: Filters = {
   maxAmount: ""
 };
 
+type PaginationState = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+const initialPagination: PaginationState = {
+  page: 1,
+  pageSize: 25,
+  total: 0,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false
+};
+
 export function TendersShell() {
   const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
   const [tenders, setTenders] = useState<TenderListItem[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>(initialPagination);
+  const [page, setPage] = useState(1);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [favorites, setFavorites] = useState<Record<string, TenderListItem>>(() => {
     if (typeof window === "undefined") {
       return {};
@@ -32,67 +54,60 @@ export function TendersShell() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const filteredTenders = useMemo(() => {
-    const query = normalize(filters.query);
-    const buyer = normalize(filters.buyer);
-    const minAmount = parseAmount(filters.minAmount);
-    const maxAmount = parseAmount(filters.maxAmount);
-
-    return tenders.filter((tender) => {
-      const searchText = normalize(
-        [
-          tender.code,
-          tender.name,
-          tender.description,
-          tender.buyerName,
-          tender.type,
-          tender.region,
-          tender.category
-        ].join(" ")
-      );
-
-      const matchesQuery = !query || searchText.includes(query);
-      const matchesBuyer = !buyer || normalize(tender.buyerName).includes(buyer);
-      const matchesMin = minAmount === undefined || (tender.amount ?? 0) >= minAmount;
-      const matchesMax = maxAmount === undefined || (tender.amount ?? 0) <= maxAmount;
-
-      return matchesQuery && matchesBuyer && matchesMin && matchesMax;
-    });
-  }, [filters, tenders]);
-
   const favoriteCount = Object.keys(favorites).length;
 
   const fetchTenders = useCallback(async () => {
+    void refreshToken;
     setIsLoading(true);
     setError(null);
 
     const params = new URLSearchParams();
-    params.set("status", filters.status);
+    params.set("status", appliedFilters.status);
+    params.set("page", String(page));
+    params.set("pageSize", String(pagination.pageSize));
 
-    if (filters.date) {
-      params.set("date", filters.date);
-    }
+    if (appliedFilters.date) params.set("date", appliedFilters.date);
+    if (appliedFilters.query) params.set("query", appliedFilters.query);
+    if (appliedFilters.buyer) params.set("buyer", appliedFilters.buyer);
+    if (appliedFilters.minAmount) params.set("minAmount", appliedFilters.minAmount);
+    if (appliedFilters.maxAmount) params.set("maxAmount", appliedFilters.maxAmount);
 
     try {
       const response = await fetch(`/api/tenders?${params.toString()}`);
-      const data = (await response.json()) as { tenders?: TenderListItem[]; error?: string };
+      const data = (await response.json()) as {
+        tenders?: TenderListItem[];
+        pagination?: PaginationState;
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "No fue posible consultar licitaciones");
       }
 
       setTenders(data.tenders ?? []);
+      setPagination(data.pagination ?? initialPagination);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Error desconocido");
       setTenders([]);
+      setPagination(initialPagination);
     } finally {
       setIsLoading(false);
     }
-  }, [filters.date, filters.status]);
+  }, [appliedFilters, page, pagination.pageSize, refreshToken]);
 
   useEffect(() => {
     void fetchTenders();
   }, [fetchTenders]);
+
+  function applySearch() {
+    setAppliedFilters(filters);
+    setPage(1);
+    setRefreshToken((current) => current + 1);
+  }
+
+  function goToPage(nextPage: number) {
+    setPage(nextPage);
+  }
 
   function toggleFavorite(tender: TenderListItem) {
     setFavorites((current) => {
@@ -124,7 +139,7 @@ export function TendersShell() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:flex">
-            <SummaryCard label="Resultados" value={filteredTenders.length} />
+            <SummaryCard label="Resultados" value={pagination.total} />
             <SummaryCard label="Favoritos" value={favoriteCount} />
           </div>
         </header>
@@ -133,18 +148,20 @@ export function TendersShell() {
           filters={filters}
           isLoading={isLoading}
           onChange={setFilters}
-          onRefresh={fetchTenders}
+          onRefresh={applySearch}
         />
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-slate-600" aria-live="polite">
-                {isLoading ? "Consultando Mercado Público..." : `${filteredTenders.length} licitaciones encontradas`}
+                {isLoading
+                  ? "Consultando Mercado Público..."
+                  : `${pagination.total} licitaciones encontradas - página ${pagination.page} de ${pagination.totalPages}`}
               </p>
               <button
                 type="button"
-                onClick={fetchTenders}
+                onClick={applySearch}
                 disabled={isLoading}
                 className="inline-flex h-10 w-fit items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:opacity-60"
               >
@@ -153,19 +170,22 @@ export function TendersShell() {
               </button>
             </div>
 
-            {error ? <ErrorBox message={error} onRetry={fetchTenders} /> : null}
+            {error ? <ErrorBox message={error} onRetry={applySearch} /> : null}
 
             {isLoading ? (
               <LoadingList />
-            ) : filteredTenders.length > 0 ? (
-              filteredTenders.map((tender) => (
-                <TenderCard
-                  key={tender.code}
-                  tender={tender}
-                  isFavorite={Boolean(favorites[tender.code])}
-                  onToggleFavorite={toggleFavorite}
-                />
-              ))
+            ) : tenders.length > 0 ? (
+              <>
+                {tenders.map((tender) => (
+                  <TenderCard
+                    key={tender.code}
+                    tender={tender}
+                    isFavorite={Boolean(favorites[tender.code])}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+                <PaginationControls pagination={pagination} isLoading={isLoading} onPageChange={goToPage} />
+              </>
             ) : (
               <EmptyState />
             )}
@@ -292,20 +312,38 @@ function EmptyState() {
   );
 }
 
-function normalize(value?: string) {
-  return (value ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function parseAmount(value: string) {
-  const clean = value.replace(/\D/g, "");
-  if (!clean) {
-    return undefined;
-  }
-
-  const parsed = Number(clean);
-  return Number.isFinite(parsed) ? parsed : undefined;
+function PaginationControls({
+  pagination,
+  isLoading,
+  onPageChange
+}: {
+  pagination: PaginationState;
+  isLoading: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <nav className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-semibold text-slate-600">
+        Mostrando página {pagination.page} de {pagination.totalPages} - {pagination.pageSize} por página
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={isLoading || !pagination.hasPreviousPage}
+          onClick={() => onPageChange(pagination.page - 1)}
+          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          disabled={isLoading || !pagination.hasNextPage}
+          onClick={() => onPageChange(pagination.page + 1)}
+          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-ocean hover:text-ocean disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Siguiente
+        </button>
+      </div>
+    </nav>
+  );
 }
