@@ -1,4 +1,5 @@
 import "server-only";
+import { ENV_KEYS, requireEnv } from "@/lib/env";
 import { normalizeTenderDetail, normalizeTenderListItem } from "@/lib/mercado-publico/normalizers";
 import type {
   MercadoPublicoResponse,
@@ -8,7 +9,6 @@ import type {
 } from "@/lib/mercado-publico/types";
 
 const BASE_URL = "https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json";
-const DEMO_TICKET = "F8537A18-6766-4DEF-9E59-426B4FEE2844";
 
 export async function searchTenders(params: TenderSearchParams = {}): Promise<TenderListItem[]> {
   const data = await mercadoPublicoRequest(params);
@@ -22,7 +22,7 @@ export async function getTenderDetail(code: string): Promise<TenderDetail | null
 }
 
 async function mercadoPublicoRequest(params: TenderSearchParams & { code?: string }) {
-  const ticket = process.env.MERCADO_PUBLICO_TICKET || DEMO_TICKET;
+  const ticket = requireEnv(ENV_KEYS.mercadoPublicoTicket);
   const url = new URL(BASE_URL);
 
   url.searchParams.set("ticket", ticket);

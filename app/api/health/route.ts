@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { ENV_KEYS, getEnvStatus, readEnv, requireSupabasePublicEnv } from "@/lib/env";
 import { searchTenders } from "@/lib/mercado-publico/client";
 
 type CheckResult = {
@@ -11,14 +12,17 @@ type CheckResult = {
 export async function GET() {
   const mercadoPublico = await checkMercadoPublico();
   const supabase = await checkSupabase();
+  const env = getEnvStatus();
 
-  const env = {
-    mercadoPublicoTicket: Boolean(process.env.MERCADO_PUBLICO_TICKET),
-    supabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    supabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  };
-
-  const ok = mercadoPublico.ok && supabase.ok && Object.values(env).every(Boolean);
+  const ok =
+    mercadoPublico.ok &&
+    supabase.ok &&
+    env.mercadoPublicoTicket &&
+    env.supabaseUrl &&
+    env.supabaseAnonKey &&
+    env.validMercadoPublicoTicket &&
+    env.validSupabaseUrl &&
+    env.validSupabaseAnonKey;
 
   return NextResponse.json(
     {
@@ -34,7 +38,7 @@ export async function GET() {
 }
 
 async function checkMercadoPublico(): Promise<CheckResult> {
-  if (!process.env.MERCADO_PUBLICO_TICKET) {
+  if (!readEnv(ENV_KEYS.mercadoPublicoTicket)) {
     return {
       ok: false,
       message: "Falta MERCADO_PUBLICO_TICKET."
@@ -60,17 +64,8 @@ async function checkMercadoPublico(): Promise<CheckResult> {
 }
 
 async function checkSupabase(): Promise<CheckResult> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    return {
-      ok: false,
-      message: "Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY."
-    };
-  }
-
   try {
+    const { url, anonKey } = requireSupabasePublicEnv();
     const supabase = createClient(url, anonKey, {
       auth: {
         persistSession: false,

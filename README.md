@@ -22,11 +22,11 @@ Variables:
 
 ```bash
 MERCADO_PUBLICO_TICKET=tu_ticket_de_chilecompra
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_publishable_key
 ```
 
-Si `MERCADO_PUBLICO_TICKET` no está definido, la app usa el ticket demo publicado por Mercado Público para desarrollo.
+En Vercel configura las tres variables para `Production` y `Preview`. `NEXT_PUBLIC_SUPABASE_URL` debe ser la URL del proyecto, no la key. `NEXT_PUBLIC_SUPABASE_ANON_KEY` debe ser la anon/publishable key, no la URL.
 
 ## Desarrollo
 
