@@ -52,3 +52,5 @@ Desktop.ini
 !pnpm-lock.yaml
 !README.md
 !lib/supabase/schema.sql
+
+.vercel

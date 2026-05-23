@@ -58,7 +58,8 @@ export function normalizePurchaseOrderListItem(raw: unknown): PurchaseOrderListI
     supplierName: cleanText(firstString(supplier.Nombre, item.NombreProveedor)),
     total: numberFrom(item.Total ?? item.TotalNeto),
     currency: cleanText(firstString(item.TipoMoneda, item.Moneda, "CLP")),
-    sentAt: stringFrom(dates.FechaEnvio ?? item.FechaEnvio)
+    sentAt: stringFrom(dates.FechaEnvio ?? item.FechaEnvio),
+    tenderCode: cleanText(stringFrom(item.CodigoLicitacion))
   };
 }
 

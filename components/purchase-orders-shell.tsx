@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CalendarDays, LayoutGrid, List, RefreshCw, Search, ShoppingCart } from "lucide-react";
 import { clsx } from "clsx";
 import { ProductSidebar } from "@/components/product-sidebar";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isPurchaseOrderIncomplete } from "@/lib/purchase-orders/completeness";
 import type { PurchaseOrderListItem } from "@/types/purchaseOrder";
 
 type ViewMode = "cards" | "compact";
@@ -32,6 +33,8 @@ const initialPagination: PaginationState = {
   hasPreviousPage: false
 };
 
+const MAX_ENRICH_CODES_PER_PAGE = 20;
+
 const statusOptions = [
   { value: "", label: "Todos los estados" },
   { value: "4", label: "Enviada a proveedor" },
@@ -51,7 +54,10 @@ export function PurchaseOrdersShell() {
   const [viewMode, setViewMode] = useState<ViewMode>("compact");
   const [refreshToken, setRefreshToken] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [enrichingCodes, setEnrichingCodes] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  const attemptedEnrichmentRef = useRef<Set<string>>(new Set());
+  const enrichAbortRef = useRef<AbortController | null>(null);
 
   const fetchOrders = useCallback(async () => {
     void refreshToken;
@@ -75,6 +81,7 @@ export function PurchaseOrdersShell() {
       if (!response.ok) throw new Error(data.error ?? "No fue posible consultar ordenes de compra");
       setOrders(data.orders ?? []);
       setPagination(data.pagination ?? initialPagination);
+      setEnrichingCodes({});
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Error desconocido");
       setOrders([]);
@@ -87,6 +94,92 @@ export function PurchaseOrdersShell() {
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    if (isLoading || orders.length === 0) {
+      return;
+    }
+
+    const codes = orders
+      .filter(isPurchaseOrderIncomplete)
+      .map((order) => order.code)
+      .filter((code) => !attemptedEnrichmentRef.current.has(code))
+      .slice(0, MAX_ENRICH_CODES_PER_PAGE);
+
+    if (codes.length === 0) {
+      return;
+    }
+
+    for (const code of codes) {
+      attemptedEnrichmentRef.current.add(code);
+    }
+
+    enrichAbortRef.current?.abort();
+    const controller = new AbortController();
+    enrichAbortRef.current = controller;
+    let cancelled = false;
+
+    setEnrichingCodes((current) => ({
+      ...current,
+      ...Object.fromEntries(codes.map((code) => [code, true]))
+    }));
+
+    async function enrichVisibleOrders() {
+      try {
+        const response = await fetch("/api/purchase-orders/enrich", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ codes }),
+          signal: controller.signal
+        });
+        const data = (await response.json()) as {
+          orders?: PurchaseOrderListItem[];
+          failed?: Array<{ code: string; error: string }>;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "No fue posible enriquecer ordenes de compra");
+        }
+
+        if (cancelled || !data.orders?.length) {
+          return;
+        }
+
+        const enrichedByCode = new Map(data.orders.map((order) => [order.code, order]));
+        setOrders((current) =>
+          current.map((order) => {
+            const enriched = enrichedByCode.get(order.code);
+            return enriched ? mergePurchaseOrderData(order, enriched) : order;
+          })
+        );
+      } catch (enrichError) {
+        if (enrichError instanceof DOMException && enrichError.name === "AbortError") {
+          return;
+        }
+        console.info("[purchase-orders:enrichment]", enrichError instanceof Error ? enrichError.message : "Unknown error");
+      } finally {
+        if (!cancelled) {
+          setEnrichingCodes((current) => {
+            const next = { ...current };
+            for (const code of codes) {
+              delete next[code];
+            }
+            return next;
+          });
+        }
+      }
+    }
+
+    void enrichVisibleOrders();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isLoading, orders]);
 
   function applySearch() {
     setPage(1);
@@ -195,13 +288,13 @@ export function PurchaseOrdersShell() {
               {viewMode === "cards" ? (
                 <div className="space-y-4">
                   {orders.map((order) => (
-                    <PurchaseOrderCard key={order.code} order={order} />
+                    <PurchaseOrderCard key={order.code} order={order} isEnriching={Boolean(enrichingCodes[order.code])} />
                   ))}
                 </div>
               ) : (
                 <Card className="overflow-hidden">
                   {orders.map((order) => (
-                    <PurchaseOrderCompactRow key={order.code} order={order} />
+                    <PurchaseOrderCompactRow key={order.code} order={order} isEnriching={Boolean(enrichingCodes[order.code])} />
                   ))}
                 </Card>
               )}
@@ -296,4 +389,19 @@ function PaginationControls({
       </CardContent>
     </Card>
   );
+}
+
+function mergePurchaseOrderData(order: PurchaseOrderListItem, enriched: PurchaseOrderListItem): PurchaseOrderListItem {
+  return {
+    ...order,
+    statusCode: order.statusCode ?? enriched.statusCode,
+    statusLabel: order.statusLabel || enriched.statusLabel,
+    type: order.type ?? enriched.type,
+    buyerName: order.buyerName ?? enriched.buyerName,
+    supplierName: order.supplierName ?? enriched.supplierName,
+    total: order.total ?? enriched.total,
+    currency: order.currency ?? enriched.currency,
+    sentAt: order.sentAt ?? enriched.sentAt,
+    tenderCode: order.tenderCode ?? enriched.tenderCode
+  };
 }

@@ -109,7 +109,29 @@ curl -X POST "http://localhost:3000/api/cron/enrich-tenders" \
   -H "Authorization: Bearer TU_CRON_SECRET"
 ```
 
-La respuesta incluye:
+## Enriquecimiento progresivo de ordenes de compra
+
+`/ordenes-compra` carga primero el listado rapido de Mercado Publico. Ese listado puede venir incompleto porque la API normalmente entrega solo codigo, nombre y estado.
+
+Despues de pintar la pagina visible, el frontend detecta ordenes incompletas y llama en segundo plano:
+
+```bash
+curl -X POST "http://localhost:3000/api/purchase-orders/enrich" \
+  -H "Content-Type: application/json" \
+  -d "{\"codes\":[\"1020-144-SE26\"]}"
+```
+
+Reglas operativas:
+
+- Maximo 20 codigos por request.
+- Concurrencia interna acotada.
+- Primero revisa `purchase_orders_normalized`.
+- Si ya existe detalle normalizado, lo reutiliza.
+- Si falta detalle, consulta Mercado Publico usando cache/rate limiting existente.
+- Guarda el resultado con `upsert` por `code`, evitando duplicados.
+- Una orden fallida no corta el resto del lote.
+
+La respuesta del cron incluye:
 
 - `processed`: codigos intentados.
 - `updated`: licitaciones enriquecidas correctamente.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { elapsedMs, nowMs, recordEndpointPerformance } from "@/lib/performance";
 import { listPurchaseOrders } from "@/services/ordenesCompra";
+import { getNormalizedPurchaseOrdersByCodes } from "@/services/normalizedData";
 import type { PurchaseOrderListItem } from "@/types/purchaseOrder";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     const currentPage = Math.min(page, totalPages);
     const start = (currentPage - 1) * pageSize;
 
-    const orders = filtered.slice(start, start + pageSize);
+    const orders = await enrichPageFromNormalizedStore(filtered.slice(start, start + pageSize));
     recordsReturned = orders.length;
 
     return NextResponse.json({
@@ -80,6 +81,33 @@ function applyFilters(orders: PurchaseOrderListItem[], query: string) {
   return orders.filter((order) =>
     normalize([order.code, order.name, order.buyerName, order.supplierName, order.statusLabel].join(" ")).includes(normalized)
   );
+}
+
+async function enrichPageFromNormalizedStore(orders: PurchaseOrderListItem[]) {
+  if (orders.length === 0) return orders;
+
+  const normalizedByCode = await getNormalizedPurchaseOrdersByCodes(orders.map((order) => order.code));
+  if (normalizedByCode.size === 0) return orders;
+
+  return orders.map((order) => {
+    const normalized = normalizedByCode.get(order.code);
+    return normalized ? mergePurchaseOrderData(order, normalized) : order;
+  });
+}
+
+function mergePurchaseOrderData(order: PurchaseOrderListItem, enriched: PurchaseOrderListItem): PurchaseOrderListItem {
+  return {
+    ...order,
+    statusCode: order.statusCode ?? enriched.statusCode,
+    statusLabel: order.statusLabel || enriched.statusLabel,
+    type: order.type ?? enriched.type,
+    buyerName: order.buyerName ?? enriched.buyerName,
+    supplierName: order.supplierName ?? enriched.supplierName,
+    total: order.total ?? enriched.total,
+    currency: order.currency ?? enriched.currency,
+    sentAt: order.sentAt ?? enriched.sentAt,
+    tenderCode: order.tenderCode ?? enriched.tenderCode
+  };
 }
 
 function parsePositiveInt(value: string | null, fallback: number) {

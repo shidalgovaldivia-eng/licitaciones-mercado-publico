@@ -30,6 +30,27 @@ export type NormalizedTenderRow = {
   normalized?: TenderDetail;
 };
 
+export type NormalizedPurchaseOrderRow = {
+  code: string;
+  name: string;
+  description?: string;
+  status_code?: string;
+  status_label?: string;
+  buyer_code?: string;
+  buyer_name?: string;
+  supplier_code?: string;
+  supplier_name?: string;
+  type?: string;
+  currency?: string;
+  net_total?: number;
+  tax_amount?: number;
+  gross_total?: number;
+  sent_at?: string;
+  enriched: boolean;
+  enriched_at?: string;
+  normalized?: PurchaseOrderDetail;
+};
+
 export async function upsertNormalizedTender(tender: TenderDetail) {
   const now = new Date().toISOString();
   const supabase = createServiceClient();
@@ -84,6 +105,9 @@ export async function upsertPendingTender(tender: TenderListItem) {
       publish_date: toIsoOrNull(tender.publishDate),
       close_date: toIsoOrNull(tender.closeDate),
       enriched: false,
+      enrichment_status: "pending",
+      enrichment_error: null,
+      retry_count: 0,
       normalized: tender,
       updated_at: now
     },
@@ -181,7 +205,7 @@ export async function upsertPendingPurchaseOrder(order: PurchaseOrderListItem) {
       normalized: order,
       updated_at: now
     },
-    { onConflict: "code", ignoreDuplicates: false }
+    { onConflict: "code", ignoreDuplicates: true }
   );
 
   if (error) throw new Error(error.message);
@@ -253,7 +277,9 @@ export async function markTenderEnrichmentRunning(codes: string[]) {
       enrichment_error: null,
       updated_at: new Date().toISOString()
     })
-    .in("code", codes);
+    .in("code", codes)
+    .eq("enriched", false)
+    .in("enrichment_status", ["pending", "failed"]);
 
   if (error) throw new Error(error.message);
 }
@@ -366,6 +392,31 @@ export async function getEnrichedPurchaseOrderCodes(codes: string[]) {
   return new Set((data ?? []).map((row: { code: string }) => row.code));
 }
 
+export async function getNormalizedPurchaseOrdersByCodes(codes: string[]) {
+  const uniqueCodes = Array.from(new Set(codes.filter(Boolean)));
+  const orders = new Map<string, PurchaseOrderListItem>();
+  if (uniqueCodes.length === 0) return orders;
+
+  const supabase = createServiceClient();
+
+  for (let index = 0; index < uniqueCodes.length; index += 500) {
+    const chunk = uniqueCodes.slice(index, index + 500);
+    const { data, error } = await supabase
+      .from("purchase_orders_normalized")
+      .select("*")
+      .in("code", chunk);
+
+    if (error && isMissingTableError(error)) return orders;
+    if (error) throw new Error(error.message);
+
+    for (const row of (data ?? []) as NormalizedPurchaseOrderRow[]) {
+      orders.set(row.code, normalizedPurchaseOrderRowToListItem(row));
+    }
+  }
+
+  return orders;
+}
+
 export async function readEnrichedTendersForDashboard() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
@@ -436,6 +487,25 @@ function normalizedTenderRowToListItem(row: NormalizedTenderRow): TenderListItem
     amountText: row.amount_text,
     publishDate: row.publish_date,
     closeDate: row.close_date
+  };
+}
+
+function normalizedPurchaseOrderRowToListItem(row: NormalizedPurchaseOrderRow): PurchaseOrderListItem {
+  if (row.enriched && row.normalized?.code) {
+    return row.normalized;
+  }
+
+  return {
+    code: row.code,
+    name: row.name,
+    statusCode: row.status_code,
+    statusLabel: row.status_label ?? "Sin estado",
+    type: row.type,
+    buyerName: row.buyer_name,
+    supplierName: row.supplier_name,
+    total: row.gross_total,
+    currency: row.currency,
+    sentAt: row.sent_at
   };
 }
 

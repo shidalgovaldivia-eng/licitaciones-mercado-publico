@@ -9,6 +9,7 @@ export type PurchaseOrderListItem = {
   total?: number;
   currency?: string;
   sentAt?: string;
+  tenderCode?: string;
 };
 
 export type PurchaseOrderDetail = PurchaseOrderListItem & {
