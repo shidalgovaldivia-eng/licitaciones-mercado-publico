@@ -3,7 +3,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, CalendarClock, FileText, Package, Truck, Wallet } from "lucide-react";
-import { MainNav } from "@/components/main-nav";
+import { ProductSidebar } from "@/components/product-sidebar";
+import { ProductTopbar } from "@/components/product-topbar";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,11 +24,15 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1280px]">
-        <header className="rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7 lg:p-8">
+    <main className="min-h-screen bg-[#f7f8fb] px-3 py-3 sm:px-4 lg:px-6">
+      <div className="mx-auto grid max-w-[1540px] gap-4 lg:grid-cols-[260px_1fr]">
+        <ProductSidebar />
+
+        <div className="min-w-0 space-y-4">
+          <ProductTopbar placeholder="Buscar orden, proveedor o comprador..." />
+
+          <header className="rounded-[28px] border border-white/80 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <MainNav />
             <Button asChild variant="secondary">
               <Link href={"/ordenes-compra" as Route}>
                 <ArrowLeft className="h-4 w-4" />
@@ -52,7 +57,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
           </div>
         </header>
 
-        <section className="mt-5 grid gap-5">
+        <section className="grid gap-5">
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <InfoCard icon={<Wallet className="h-5 w-5" />} label="Total neto" value={formatCLP(order.netTotal, order.currency)} />
             <InfoCard icon={<Wallet className="h-5 w-5" />} label="IVA / impuestos" value={formatCLP(order.taxAmount, order.currency)} />
@@ -150,6 +155,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
             </CardContent>
           </Card>
         </section>
+        </div>
       </div>
     </main>
   );

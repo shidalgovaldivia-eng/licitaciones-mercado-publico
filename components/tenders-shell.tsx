@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Bell, BookmarkCheck, DatabaseZap, LayoutGrid, List, RefreshCw, ShieldCheck } from "lucide-react";
 import { clsx } from "clsx";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
-import { MainNav } from "@/components/main-nav";
+import { ProductSidebar } from "@/components/product-sidebar";
+import { ProductTopbar } from "@/components/product-topbar";
 import { TenderCard, TenderCompactRow } from "@/components/tender-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,7 @@ export function TendersShell() {
   const [pagination, setPagination] = useState<PaginationState>(initialPagination);
   const [page, setPage] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [viewMode, setViewMode] = useState<ViewMode>("compact");
   const [favorites, setFavorites] = useState<Record<string, TenderListItem>>(() => {
     if (typeof window === "undefined") return {};
     const stored = window.localStorage.getItem(FAVORITES_KEY);
@@ -232,12 +233,16 @@ export function TendersShell() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1500px]">
-        <header className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7 lg:p-8">
+    <main className="min-h-screen bg-[#f7f8fb] px-3 py-3 sm:px-4 lg:px-6">
+      <div className="mx-auto grid max-w-[1540px] gap-4 lg:grid-cols-[260px_1fr]">
+        <ProductSidebar />
+
+        <div className="min-w-0 space-y-4">
+          <ProductTopbar />
+
+          <header className="relative overflow-hidden rounded-[28px] border border-white/80 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7">
           <div className="relative z-10">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <MainNav />
               <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
                 <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1.5 shadow-sm">
                   <ShieldCheck className="h-3.5 w-3.5 text-ocean" />
@@ -270,11 +275,11 @@ export function TendersShell() {
           </div>
         </header>
 
-        <div className="mt-5">
+        <div>
           <FilterPanel filters={filters} isLoading={isLoading} onChange={setFilters} onRefresh={applySearch} />
         </div>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_330px]">
+        <section className="grid gap-5 xl:grid-cols-[1fr_330px]">
           <div className="space-y-4">
             <Card>
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -370,6 +375,7 @@ export function TendersShell() {
             </SidePanel>
           </aside>
         </section>
+        </div>
       </div>
     </main>
   );

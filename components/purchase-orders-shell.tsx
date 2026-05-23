@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CalendarDays, LayoutGrid, List, RefreshCw, Search, ShoppingCart } from "lucide-react";
 import { clsx } from "clsx";
-import { MainNav } from "@/components/main-nav";
+import { ProductSidebar } from "@/components/product-sidebar";
+import { ProductTopbar } from "@/components/product-topbar";
 import { PurchaseOrderCard, PurchaseOrderCompactRow } from "@/components/purchase-order-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,7 +48,7 @@ export function PurchaseOrdersShell() {
   const [date, setDate] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [viewMode, setViewMode] = useState<ViewMode>("compact");
   const [refreshToken, setRefreshToken] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,11 +94,15 @@ export function PurchaseOrdersShell() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1500px]">
-        <header className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7 lg:p-8">
+    <main className="min-h-screen bg-[#f7f8fb] px-3 py-3 sm:px-4 lg:px-6">
+      <div className="mx-auto grid max-w-[1540px] gap-4 lg:grid-cols-[260px_1fr]">
+        <ProductSidebar />
+
+        <div className="min-w-0 space-y-4">
+          <ProductTopbar placeholder="Buscar orden, proveedor, comprador o licitación relacionada..." />
+
+          <header className="relative overflow-hidden rounded-[28px] border border-white/80 bg-white/80 p-5 shadow-premium ring-1 ring-slate-950/[0.03] backdrop-blur-xl sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <MainNav />
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
               <ShoppingCart className="h-3.5 w-3.5 text-ocean" />
               Compras reales del Estado
@@ -122,7 +127,7 @@ export function PurchaseOrdersShell() {
           </div>
         </header>
 
-        <Card className="mt-5">
+        <Card>
           <CardContent className="grid gap-3 p-4 lg:grid-cols-[1fr_180px_220px_auto]">
             <label className="relative block">
               <span className="sr-only">Buscar orden</span>
@@ -156,7 +161,7 @@ export function PurchaseOrdersShell() {
           </CardContent>
         </Card>
 
-        <section className="mt-5 space-y-4">
+        <section className="space-y-4">
           <Card>
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-medium text-slate-600">
@@ -211,6 +216,7 @@ export function PurchaseOrdersShell() {
             </Card>
           )}
         </section>
+        </div>
       </div>
     </main>
   );
