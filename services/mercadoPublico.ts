@@ -151,7 +151,7 @@ async function executeMercadoPublicoRequest<T>({
   if (cacheStrategy === "cache-first") {
     const cached = await readCache<T>(cacheKey, "fresh");
     if (cached) {
-      await logApiRequest({
+      void logApiRequest({
         resource,
         params: apiParams,
         status: 200,
@@ -178,7 +178,7 @@ async function executeMercadoPublicoRequest<T>({
   if (nearLimit) {
     const staleCache = await readCache<T>(cacheKey, "stale");
     if (staleCache) {
-      await logApiRequest({
+      void logApiRequest({
         resource,
         params: apiParams,
         status: 200,
@@ -256,7 +256,7 @@ async function executeMercadoPublicoRequest<T>({
 
     const staleCache = await readCache<T>(cacheKey, "stale");
     if (staleCache) {
-      await logApiRequest({
+      void logApiRequest({
         resource,
         params: apiParams,
         status: 200,

@@ -21,7 +21,8 @@ flowchart TB
   Services --> Cache["Supabase licitaciones_cache"]
   Services --> Log["Supabase api_request_log"]
   Services --> MP["Mercado Público API"]
-  Services --> Dashboard["Dashboard summary"]
+  Services --> Normalized["Supabase tenders_normalized / purchase_orders_normalized"]
+  Normalized --> Dashboard["Dashboard summary"]
 ```
 
 ## Capas
@@ -57,7 +58,9 @@ Route handlers en `app/api/**`:
 
 `services/apiRequestLog.ts` registra uso de API y genera resumen administrativo.
 
-`services/dashboardSummary.ts` calcula KPIs desde cache y usa fallback a Mercado Público si no hay datos.
+`services/dashboardSummary.ts` calcula KPIs solo desde datos normalizados y enriquecidos en Supabase.
+
+`services/normalizedData.ts` persiste representaciones consistentes de licitaciones y ordenes de compra para analytics.
 
 ### Lib
 
@@ -121,10 +124,61 @@ Tablas actuales:
 - `tender_alerts`
 - `licitaciones_cache`
 - `api_request_log`
+- `tenders_normalized`
+- `purchase_orders_normalized`
 
 `SUPABASE_SERVICE_ROLE_KEY` se usa solo desde services server-side para cache/log/health.
 
-## Cache
+## Datos normalizados y enriquecimiento
+
+El listado de Mercado Publico puede venir incompleto. Por eso la app separa cache operativo de datos normalizados.
+
+Flujo de enriquecimiento:
+
+```mermaid
+flowchart TB
+  Admin["Admin POST /api/admin/enrich-tenders"] --> List["Listado Mercado Publico"]
+  List --> Pending["Upsert pending en tenders_normalized"]
+  Pending --> Detail["Detalle por codigo, max 20 por ejecucion"]
+  Detail --> Normalize["Normalizacion completa"]
+  Normalize --> Upsert["Upsert enriched=true / enriched_at"]
+  Upsert --> Dashboard["Dashboard consulta solo Supabase normalizado"]
+```
+
+Tablas:
+
+- `tenders_normalized`: licitaciones con comprador, region, fechas, monto interpretado y payload normalizado.
+- `purchase_orders_normalized`: ordenes de compra con comprador, proveedor, totales, fechas y payload normalizado.
+
+Campos de control:
+
+- `enriched`: indica si el registro tiene detalle completo normalizado.
+- `enriched_at`: fecha de ultimo enriquecimiento completo.
+- `normalized`: snapshot JSONB del objeto normalizado usado por la app.
+
+Endpoints administrativos:
+
+- `POST /api/admin/enrich-tenders`
+- `POST /api/admin/enrich-purchase-orders`
+- `GET /api/admin/enrichment-status`
+- `POST /api/admin/cleanup-cache`
+
+Los endpoints de enriquecimiento:
+
+- requieren `ADMIN_API_KEY`
+- procesan por defecto 20 detalles por ejecucion
+- aceptan `limit` y `batches`, por ejemplo `/api/admin/enrich-tenders?limit=100&batches=5`
+- nunca procesan mas de 500 detalles por request
+- respetan cache y rate limiting desde los services existentes
+- registran llamadas externas en `api_request_log`
+
+El dashboard usa exclusivamente `tenders_normalized` con `enriched=true`. Esto evita estadisticas basadas en listados parciales y reduce apariciones de datos como "No informado".
+
+`/api/admin/enrichment-status` muestra avance operacional: total listado/cacheado, total normalizado, pendientes, porcentaje enriquecido y llamadas externas del dia.
+
+`/api/admin/cleanup-cache` tambien requiere `ADMIN_API_KEY`, pero no llama Mercado Publico. Solo elimina cache vencido antiguo y logs operativos antiguos.
+
+## Cache operativo
 
 La tabla `licitaciones_cache` guarda respuestas crudas por recurso y parámetros.
 
@@ -134,6 +188,8 @@ TTL:
 
 - listados: `MERCADO_PUBLICO_CACHE_TTL_MINUTES`
 - detalle por código: 24 horas
+
+El cache no reemplaza las tablas normalizadas. Su proposito es evitar llamadas repetidas a Mercado Publico; las tablas normalizadas existen para consultas consistentes, dashboard y futura analitica.
 
 ## Rate limiting
 
@@ -158,7 +214,8 @@ Server-side:
 - cache
 - rate limiting
 - health/admin endpoints
-- dashboard summary
+- enrichment pipeline
+- dashboard summary desde datos normalizados
 
 Client-side:
 
@@ -201,5 +258,5 @@ Ver [DEPLOYMENT.md](./DEPLOYMENT.md).
 - pnpm para instalaciones reproducibles.
 - Supabase como cache y base transaccional inicial.
 - Cache defensivo para proteger un recurso externo con cuota diaria.
-- Dashboard desde cache para mostrar valor sin consumir cuota innecesaria.
+- Dashboard desde tablas normalizadas para evitar estadisticas incompletas.
 - Health check sin llamada real a Mercado Público.

@@ -19,9 +19,7 @@ export default async function DashboardPage() {
               <CardContent className="flex items-center justify-between gap-8 p-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Fuente</p>
-                  <p className="mt-1 text-sm font-semibold text-ink">
-                    {summary.source === "supabase_cache" ? "Cache Supabase" : "Mercado Publico"}
-                  </p>
+                  <p className="mt-1 text-sm font-semibold text-ink">Supabase normalizado</p>
                 </div>
                 <p className="text-right text-xs leading-5 text-slate-500">{formatDateTime(summary.generatedAt)}</p>
               </CardContent>
@@ -42,7 +40,7 @@ export default async function DashboardPage() {
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               <MiniMetric label="Activas" value={summary.totalActiveTenders} />
               <MiniMetric label="Cierran en 48h" value={summary.closingNext48Hours} />
-              <MiniMetric label="Compradores top" value={summary.topBuyers.length} />
+              <MiniMetric label="Enriquecidas" value={`${summary.normalization.tenders.enrichedPercent}%`} />
             </div>
           </div>
         </header>
@@ -69,8 +67,23 @@ export default async function DashboardPage() {
           <MetricCard
             icon={<Database className="h-5 w-5" />}
             label="Datos"
-            value={summary.source === "supabase_cache" ? "Cache" : "API"}
-            helper="Origen usado para el resumen"
+            value="Normalizado"
+            helper="Dashboard alimentado solo por datos enriquecidos"
+          />
+        </section>
+
+        <section className="mt-5 grid gap-4 sm:grid-cols-2">
+          <MetricCard
+            icon={<Database className="h-5 w-5" />}
+            label="Licitaciones enriquecidas"
+            value={summary.normalization.tenders.enriched}
+            helper={`Datos enriquecidos: ${summary.normalization.tenders.enriched} de ${summary.normalization.tenders.total}. Pendientes: ${summary.normalization.tenders.pending}`}
+          />
+          <MetricCard
+            icon={<Database className="h-5 w-5" />}
+            label="Ordenes enriquecidas"
+            value={summary.normalization.purchaseOrders.enriched}
+            helper={`Datos enriquecidos: ${summary.normalization.purchaseOrders.enriched} de ${summary.normalization.purchaseOrders.total}. Pendientes: ${summary.normalization.purchaseOrders.pending}`}
           />
         </section>
 
@@ -80,7 +93,7 @@ export default async function DashboardPage() {
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <p className="font-semibold">No hay licitaciones activas disponibles para analizar.</p>
-                <p className="mt-1">Abre el listado o consulta /api/tenders para poblar la cache inicial.</p>
+                <p className="mt-1">Ejecuta POST /api/admin/enrich-tenders para poblar la tabla normalizada.</p>
               </div>
             </CardContent>
           </Card>

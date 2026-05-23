@@ -1,18 +1,34 @@
 import { NextResponse } from "next/server";
-import { ENV_KEYS, readEnv } from "@/lib/env";
+import { requireAdmin } from "@/lib/adminAuth";
+import { elapsedMs, nowMs, recordEndpointPerformance } from "@/lib/performance";
 import { getApiUsageSummary } from "@/services/apiRequestLog";
 
 export async function GET(request: Request) {
-  const adminApiKey = readEnv(ENV_KEYS.adminApiKey);
-  const authorization = request.headers.get("authorization");
-  const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : undefined;
-  const requestApiKey = request.headers.get("x-admin-api-key") ?? bearerToken;
+  const endpointStart = nowMs();
+  let status = 200;
+  const unauthorized = requireAdmin(request);
 
-  if (!adminApiKey || requestApiKey !== adminApiKey) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (unauthorized) {
+    status = 401;
+    recordEndpointPerformance({
+      endpoint: "/api/admin/api-usage",
+      method: "GET",
+      totalMs: elapsedMs(endpointStart),
+      status,
+      createdAt: new Date().toISOString()
+    });
+    return unauthorized;
   }
 
   const summary = await getApiUsageSummary();
+  recordEndpointPerformance({
+    endpoint: "/api/admin/api-usage",
+    method: "GET",
+    totalMs: elapsedMs(endpointStart),
+    recordsReturned: summary.latest.length,
+    status,
+    createdAt: new Date().toISOString()
+  });
 
   return NextResponse.json({
     ok: true,

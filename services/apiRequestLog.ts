@@ -58,9 +58,9 @@ export async function countMercadoPublicoExternalRequestsToday() {
     return 0;
   }
 
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from(LOG_TABLE)
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("provider", PROVIDER)
     .eq("cache_hit", false)
     .gte("created_at", startOfTodayIso());
@@ -69,7 +69,7 @@ export async function countMercadoPublicoExternalRequestsToday() {
     return 0;
   }
 
-  return data?.length ?? 0;
+  return count ?? 0;
 }
 
 export async function getApiUsageSummary(): Promise<ApiUsageSummary> {
@@ -87,19 +87,19 @@ export async function getApiUsageSummary(): Promise<ApiUsageSummary> {
   const [external, cacheHits, errors, latest] = await Promise.all([
     supabase
       .from(LOG_TABLE)
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("provider", PROVIDER)
       .eq("cache_hit", false)
       .gte("created_at", today),
     supabase
       .from(LOG_TABLE)
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("provider", PROVIDER)
       .eq("cache_hit", true)
       .gte("created_at", today),
     supabase
       .from(LOG_TABLE)
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("provider", PROVIDER)
       .not("error_message", "is", null)
       .gte("created_at", today),
@@ -112,9 +112,9 @@ export async function getApiUsageSummary(): Promise<ApiUsageSummary> {
   ]);
 
   return {
-    externalRequestsToday: external.data?.length ?? 0,
-    cacheHitsToday: cacheHits.data?.length ?? 0,
-    errorsToday: errors.data?.length ?? 0,
+    externalRequestsToday: external.count ?? 0,
+    cacheHitsToday: cacheHits.count ?? 0,
+    errorsToday: errors.count ?? 0,
     latest: (latest.data ?? []) as ApiRequestLogRow[]
   };
 }

@@ -63,11 +63,16 @@ export function TendersShell() {
   const [enrichingCodes, setEnrichingCodes] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const attemptedEnrichmentRef = useRef<Set<string>>(new Set());
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const enrichAbortRef = useRef<AbortController | null>(null);
 
   const favoriteCount = Object.keys(favorites).length;
 
   const fetchTenders = useCallback(async () => {
     void refreshToken;
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
     setIsLoading(true);
     setError(null);
 
@@ -82,7 +87,9 @@ export function TendersShell() {
     if (appliedFilters.maxAmount) params.set("maxAmount", appliedFilters.maxAmount);
 
     try {
-      const response = await fetch(`/api/tenders?${params.toString()}`);
+      const response = await fetch(`/api/tenders?${params.toString()}`, {
+        signal: controller.signal
+      });
       const data = (await response.json()) as {
         tenders?: TenderListItem[];
         pagination?: PaginationState;
@@ -93,17 +100,35 @@ export function TendersShell() {
       setPagination(data.pagination ?? initialPagination);
       setEnrichingCodes({});
     } catch (fetchError) {
+      if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
+        return;
+      }
       setError(fetchError instanceof Error ? fetchError.message : "Error desconocido");
       setTenders([]);
       setPagination(initialPagination);
     } finally {
-      setIsLoading(false);
+      if (fetchAbortRef.current === controller) {
+        setIsLoading(false);
+      }
     }
   }, [appliedFilters, page, pagination.pageSize, refreshToken]);
 
   useEffect(() => {
     void fetchTenders();
   }, [fetchTenders]);
+
+  useEffect(() => {
+    if (JSON.stringify(filters) === JSON.stringify(appliedFilters)) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAppliedFilters(filters);
+      setPage(1);
+    }, 550);
+
+    return () => window.clearTimeout(timeout);
+  }, [appliedFilters, filters]);
 
   useEffect(() => {
     if (isLoading || tenders.length === 0) {
@@ -124,6 +149,9 @@ export function TendersShell() {
       attemptedEnrichmentRef.current.add(code);
     }
 
+    enrichAbortRef.current?.abort();
+    const controller = new AbortController();
+    enrichAbortRef.current = controller;
     let cancelled = false;
     setEnrichingCodes((current) => ({
       ...current,
@@ -137,7 +165,8 @@ export function TendersShell() {
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ codes })
+          body: JSON.stringify({ codes }),
+          signal: controller.signal
         });
         const data = (await response.json()) as {
           tenders?: TenderListItem[];
@@ -161,6 +190,9 @@ export function TendersShell() {
           })
         );
       } catch (enrichError) {
+        if (enrichError instanceof DOMException && enrichError.name === "AbortError") {
+          return;
+        }
         console.info("[tenders:enrichment]", enrichError instanceof Error ? enrichError.message : "Unknown error");
       } finally {
         if (!cancelled) {
@@ -179,6 +211,7 @@ export function TendersShell() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [isLoading, tenders]);
 

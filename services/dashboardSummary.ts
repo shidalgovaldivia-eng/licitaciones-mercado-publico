@@ -1,11 +1,6 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
-import { getSupabaseServerEnv } from "@/lib/env";
-import { normalizeTenderListItem } from "@/lib/mercado-publico/normalizers";
-import type { MercadoPublicoResponse, TenderListItem } from "@/lib/mercado-publico/types";
-import { searchTenders } from "@/lib/mercado-publico/client";
+import { getNormalizationMetrics, readEnrichedTendersForDashboard, type NormalizedTenderRow } from "@/services/normalizedData";
 
-const CACHE_TABLE = "licitaciones_cache";
 const STOP_WORDS = new Set([
   "a",
   "al",
@@ -34,13 +29,17 @@ const STOP_WORDS = new Set([
 
 export type DashboardSummary = {
   generatedAt: string;
-  source: "supabase_cache" | "mercado_publico";
+  source: "normalized_supabase";
   totalActiveTenders: number;
   closingNext48Hours: number;
   topBuyers: SummaryBucket[];
   topStatuses: SummaryBucket[];
   topWords: SummaryBucket[];
   closingByDate: SummaryBucket[];
+  normalization: {
+    tenders: NormalizationMetric;
+    purchaseOrders: NormalizationMetric;
+  };
 };
 
 export type SummaryBucket = {
@@ -48,96 +47,46 @@ export type SummaryBucket = {
   value: number;
 };
 
+export type NormalizationMetric = {
+  total: number;
+  enriched: number;
+  pending: number;
+  enrichedPercent: number;
+};
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  let tenders = await readTendersFromCache();
-  let source: DashboardSummary["source"] = "supabase_cache";
+  const [tenders, normalization] = await Promise.all([
+    readEnrichedTendersForDashboard(),
+    getNormalizationMetrics()
+  ]);
 
-  if (tenders.length === 0) {
-    tenders = await searchTenders({ status: "activas" });
-    source = "mercado_publico";
-  }
-
-  const activeTenders = dedupeByCode(tenders).filter(isActiveTender);
+  const activeTenders = tenders.filter(isActiveTender);
 
   return {
     generatedAt: new Date().toISOString(),
-    source,
+    source: "normalized_supabase",
     totalActiveTenders: activeTenders.length,
     closingNext48Hours: countClosingNext48Hours(activeTenders),
-    topBuyers: topBuckets(
-      activeTenders
-        .map((tender) => tender.buyerName)
-        .filter((buyer): buyer is string => Boolean(buyer && buyer !== "Ver detalle para comprador")),
-      8
-    ),
-    topStatuses: topBuckets(activeTenders.map((tender) => tender.statusLabel || "Sin estado"), 8),
+    topBuyers: topBuckets(activeTenders.map((tender) => tender.buyer_name).filter(isPresent), 8),
+    topStatuses: topBuckets(activeTenders.map((tender) => tender.status_label || "Sin estado"), 8),
     topWords: topWords(activeTenders, 12),
-    closingByDate: closingByDate(activeTenders)
+    closingByDate: closingByDate(activeTenders),
+    normalization
   };
 }
 
-async function readTendersFromCache() {
-  const supabase = createCacheClient();
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from(CACHE_TABLE)
-    .select("payload, params, fetched_at")
-    .eq("resource", "licitaciones")
-    .order("fetched_at", { ascending: false })
-    .limit(30);
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data.flatMap((row) => {
-    const payload = row.payload as MercadoPublicoResponse;
-    return Array.isArray(payload.Listado) ? payload.Listado.map(normalizeTenderListItem) : [];
-  });
-}
-
-function dedupeByCode(tenders: TenderListItem[]) {
-  const map = new Map<string, TenderListItem>();
-  for (const tender of tenders) {
-    const current = map.get(tender.code);
-    map.set(tender.code, current ? mergeTenderData(current, tender) : tender);
-  }
-
-  return Array.from(map.values());
-}
-
-function mergeTenderData(current: TenderListItem, next: TenderListItem): TenderListItem {
-  return {
-    ...current,
-    buyer: current.buyer?.name ? current.buyer : next.buyer,
-    buyerName: current.buyerName ?? next.buyerName,
-    buyerCode: current.buyerCode ?? next.buyerCode,
-    category: current.category ?? next.category,
-    categoryCode: current.categoryCode ?? next.categoryCode,
-    region: current.region ?? next.region,
-    type: current.type ?? next.type,
-    amount: current.amount ?? next.amount,
-    amountText: current.amountText ?? next.amountText,
-    publishDate: current.publishDate ?? next.publishDate,
-    closeDate: current.closeDate ?? next.closeDate
-  };
-}
-
-function isActiveTender(tender: TenderListItem) {
-  const status = String(tender.status).toLowerCase();
-  const label = tender.statusLabel.toLowerCase();
+function isActiveTender(tender: NormalizedTenderRow) {
+  const status = String(tender.status_code ?? "").toLowerCase();
+  const label = String(tender.status_label ?? "").toLowerCase();
   return status === "5" || status === "activas" || label.includes("publicada") || label.includes("activa");
 }
 
-function countClosingNext48Hours(tenders: TenderListItem[]) {
+function countClosingNext48Hours(tenders: NormalizedTenderRow[]) {
   const now = Date.now();
   const max = now + 48 * 60 * 60 * 1000;
 
   return tenders.filter((tender) => {
-    const closeTime = tender.closeDate ? new Date(tender.closeDate).getTime() : Number.NaN;
+    const closeTime = tender.close_date ? new Date(tender.close_date).getTime() : Number.NaN;
     return Number.isFinite(closeTime) && closeTime >= now && closeTime <= max;
   }).length;
 }
@@ -145,7 +94,8 @@ function countClosingNext48Hours(tenders: TenderListItem[]) {
 function topBuckets(values: string[], limit: number) {
   const counts = new Map<string, number>();
   for (const value of values) {
-    const label = value.trim() || "Sin informar";
+    const label = value.trim();
+    if (!label || label === "No informado" || label === "No especificado") continue;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
 
@@ -155,7 +105,7 @@ function topBuckets(values: string[], limit: number) {
     .slice(0, limit);
 }
 
-function topWords(tenders: TenderListItem[], limit: number) {
+function topWords(tenders: NormalizedTenderRow[], limit: number) {
   const words = tenders.flatMap((tender) =>
     normalizeText(tender.name)
       .split(/\s+/)
@@ -165,15 +115,15 @@ function topWords(tenders: TenderListItem[], limit: number) {
   return topBuckets(words, limit);
 }
 
-function closingByDate(tenders: TenderListItem[]) {
+function closingByDate(tenders: NormalizedTenderRow[]) {
   const dates = tenders
     .map((tender) => {
-      if (!tender.closeDate) return undefined;
-      const date = new Date(tender.closeDate);
+      if (!tender.close_date) return undefined;
+      const date = new Date(tender.close_date);
       if (Number.isNaN(date.getTime())) return undefined;
       return date.toISOString().slice(0, 10);
     })
-    .filter((date): date is string => Boolean(date));
+    .filter(isPresent);
 
   return topBuckets(dates, 14).sort((left, right) => left.label.localeCompare(right.label));
 }
@@ -187,16 +137,6 @@ function normalizeText(value: string) {
     .trim();
 }
 
-function createCacheClient() {
-  const env = getSupabaseServerEnv();
-  if (!env) {
-    return null;
-  }
-
-  return createClient(env.url, env.serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
+function isPresent(value?: string | null): value is string {
+  return Boolean(value && value.trim().length > 0);
 }
