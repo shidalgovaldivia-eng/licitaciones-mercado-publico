@@ -73,6 +73,8 @@ Esto permite `upsert` idempotente sin duplicar entidades cuando Mercado Publico 
 
 ## Endpoint admin
 
+Reconstruir catalogos:
+
 ```bash
 curl -X POST "https://TU_DOMINIO/api/admin/rebuild-catalogs" \
   -H "x-admin-api-key: TU_ADMIN_API_KEY"
@@ -90,6 +92,96 @@ Respuesta:
   "errors": []
 }
 ```
+
+Validar calidad:
+
+```bash
+curl "https://TU_DOMINIO/api/admin/catalog-quality" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+```
+
+Respuesta resumida:
+
+```json
+{
+  "ok": true,
+  "buyers": {
+    "total": 120,
+    "withoutCode": 15,
+    "withoutRegion": 8,
+    "withTenders": 90,
+    "withPurchaseOrders": 60,
+    "topByAmount": []
+  },
+  "suppliers": {
+    "total": 80,
+    "withoutCode": 10,
+    "withOrders": 80,
+    "topByAmount": []
+  },
+  "categories": {
+    "total": 45,
+    "withoutCode": 30,
+    "withTenders": 25,
+    "withPurchaseOrders": 35,
+    "topByAmount": []
+  },
+  "source": {
+    "enrichedPurchaseOrders": 500,
+    "pendingPurchaseOrders": 20,
+    "failedPurchaseOrders": 3,
+    "totalPurchaseAmount": 125000000,
+    "dataQualityPercent": 82
+  },
+  "alerts": []
+}
+```
+
+Ejemplos locales:
+
+```bash
+curl -X POST "http://localhost:3000/api/admin/rebuild-catalogs" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+
+curl "http://localhost:3000/api/admin/catalog-quality" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+```
+
+Ejemplos Vercel:
+
+```bash
+curl -X POST "https://TU_DOMINIO/api/admin/rebuild-catalogs" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+
+curl "https://TU_DOMINIO/api/admin/catalog-quality" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+```
+
+## Alertas de calidad
+
+`/api/admin/catalog-quality` devuelve alertas simples cuando:
+
+- mas del 50% de compradores no tiene codigo,
+- mas del 50% de proveedores no tiene codigo,
+- `total_amount` esta en cero para casi todos los registros principales,
+- no hay categorias suficientes,
+- no hay ordenes de compra enriquecidas.
+
+## Uso en dashboard
+
+La seccion `Inteligencia de compra publica` de `/dashboard` consume el mismo servicio interno de calidad de catalogos.
+No llama Mercado Publico y no modifica datos.
+
+Muestra:
+
+- total de organismos compradores, proveedores y categorias,
+- monto total comprado desde `purchase_orders_normalized.gross_total`,
+- ordenes enriquecidas, pendientes y fallidas,
+- porcentaje de calidad calculado desde codigos presentes en catalogos,
+- top 5 organismos, proveedores y categorias por monto,
+- alertas de calidad operativa.
+
+Si las tablas estan vacias o aun no se han reconstruido los catalogos, el dashboard muestra un estado vacio claro en vez de fallar.
 
 ## Reglas
 

@@ -26,6 +26,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getCatalogQualityReport, type CatalogItem, type CatalogQualityReport } from "@/services/catalogQuality";
 import { getDashboardSummary, type SummaryBucket } from "@/services/dashboardSummary";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ const navItems = [
 ] as const;
 
 export default async function DashboardPage() {
-  const summary = await getDashboardSummary();
+  const [summary, catalogQuality] = await Promise.all([getDashboardSummary(), getCatalogQualityReport()]);
   const enrichedTotal = summary.normalization.tenders.total;
   const enrichedDone = summary.normalization.tenders.enriched;
   const enrichedPercent = summary.normalization.tenders.enrichedPercent;
@@ -122,6 +123,8 @@ export default async function DashboardPage() {
 
           <PurchaseOrderActivity summary={summary} />
 
+          <PublicPurchaseIntelligence quality={catalogQuality} />
+
           {summary.totalActiveTenders === 0 ? (
             <Card className="border-amber-200 bg-amber-50 text-amber-900 shadow-none">
               <CardContent className="flex items-start gap-3 p-4 text-sm">
@@ -190,6 +193,142 @@ function PurchaseOrderActivity({ summary }: { summary: Awaited<ReturnType<typeof
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function PublicPurchaseIntelligence({ quality }: { quality: CatalogQualityReport }) {
+  const catalogTotal = quality.buyers.total + quality.suppliers.total + quality.categories.total;
+  const hasCatalogs = catalogTotal > 0;
+  const purchaseOrderTotal =
+    quality.source.enrichedPurchaseOrders + quality.source.pendingPurchaseOrders + quality.source.failedPurchaseOrders;
+
+  return (
+    <Card className="border-white/80 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <BarChart3 className="h-4 w-4 text-ocean" />
+            Inteligencia de compra publica
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">Catalogos normalizados</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Ranking y calidad calculados desde organismos, proveedores, categorias, licitaciones y ordenes normalizadas.
+          </p>
+        </div>
+        <StatusChip icon={<ShieldCheck className="h-3.5 w-3.5" />} label={`${quality.source.dataQualityPercent}% calidad`} tone="slate" />
+      </div>
+
+      {hasCatalogs ? (
+        <CardContent className="space-y-5 p-5">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <MiniMetric icon={<Database className="h-4 w-4" />} label="Organismos" value={formatNumber(quality.buyers.total)} />
+            <MiniMetric icon={<ShoppingCart className="h-4 w-4" />} label="Proveedores" value={formatNumber(quality.suppliers.total)} />
+            <MiniMetric icon={<BarChart3 className="h-4 w-4" />} label="Categorias" value={formatNumber(quality.categories.total)} />
+            <MiniMetric icon={<HandCoins className="h-4 w-4" />} label="Monto comprado" value={formatCurrency(quality.source.totalPurchaseAmount)} />
+            <MiniMetric
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              label="Ordenes enriquecidas"
+              value={`${formatNumber(quality.source.enrichedPurchaseOrders)} / ${formatNumber(purchaseOrderTotal)}`}
+            />
+            <MiniMetric icon={<ShieldCheck className="h-4 w-4" />} label="Calidad datos" value={`${quality.source.dataQualityPercent}%`} />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-3">
+            <AmountRankingPanel title="Top organismos por monto" rows={quality.buyers.topByAmount} empty="Sin montos por organismo." />
+            <AmountRankingPanel title="Top proveedores por monto" rows={quality.suppliers.topByAmount} empty="Sin montos por proveedor." />
+            <AmountRankingPanel title="Top categorias por monto" rows={quality.categories.topByAmount} empty="Sin montos por categoria." />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink">Calidad de datos</h3>
+                <StatusChip icon={<Database className="h-3.5 w-3.5" />} label="Sin API externa" tone="slate" />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <QualityStat label="Buyers sin codigo" value={quality.buyers.withoutCode} total={quality.buyers.total} />
+                <QualityStat label="Suppliers sin codigo" value={quality.suppliers.withoutCode} total={quality.suppliers.total} />
+                <QualityStat label="Categorias sin codigo" value={quality.categories.withoutCode} total={quality.categories.total} />
+                <QualityStat
+                  label="OC fallidas"
+                  value={quality.source.failedPurchaseOrders}
+                  total={Math.max(purchaseOrderTotal, quality.source.failedPurchaseOrders)}
+                />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MiniMetric icon={<CheckCircle2 className="h-4 w-4" />} label="OC enriquecidas" value={formatNumber(quality.source.enrichedPurchaseOrders)} />
+                <MiniMetric icon={<Clock3 className="h-4 w-4" />} label="OC pendientes" value={formatNumber(quality.source.pendingPurchaseOrders)} />
+                <MiniMetric icon={<AlertTriangle className="h-4 w-4" />} label="OC fallidas" value={formatNumber(quality.source.failedPurchaseOrders)} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-100 bg-white p-4">
+              <h3 className="text-sm font-semibold text-ink">Alertas de calidad</h3>
+              <div className="mt-4 space-y-3">
+                {quality.alerts.length > 0 ? (
+                  quality.alerts.slice(0, 5).map((alert) => (
+                    <div key={alert} className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+                      {alert}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-emerald-800">
+                    Sin alertas criticas en catalogos normalizados.
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        </CardContent>
+      ) : (
+        <CardContent className="p-8">
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+            <p className="font-semibold text-ink">Catalogos en preparacion</p>
+            <p className="mt-1">
+              Ejecuta el rebuild de catalogos para poblar organismos, proveedores y categorias desde datos ya normalizados.
+            </p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function AmountRankingPanel({ title, rows, empty }: { title: string; rows: CatalogItem[]; empty: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      <div className="mt-4 space-y-3">
+        {rows.length > 0 ? (
+          rows.slice(0, 5).map((row) => (
+            <div key={row.id ?? row.code ?? row.label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0">
+                <span className="block truncate text-slate-700">{row.label}</span>
+                {row.code ? <span className="mt-0.5 block text-xs text-slate-400">{row.code}</span> : null}
+              </span>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                {formatCurrency(row.value)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-slate-500">{empty}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QualityStat({ label, value, total }: { label: string; value: number; total: number }) {
+  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-ink">{formatNumber(value)}</p>
+      <p className="mt-1 text-xs text-slate-500">{percent}% del total</p>
+      <ProgressBar value={percent} className="mt-3" barClassName={percent > 50 ? "bg-amber-500" : "bg-emerald-500"} compact />
+    </div>
   );
 }
 

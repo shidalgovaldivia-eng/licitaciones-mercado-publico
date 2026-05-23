@@ -168,6 +168,7 @@ Endpoints administrativos:
 - `GET|POST /api/cron/enrich-purchase-orders`
 - `POST /api/admin/cleanup-cache`
 - `POST /api/admin/rebuild-catalogs`
+- `GET /api/admin/catalog-quality`
 
 Los endpoints de enriquecimiento:
 
@@ -189,6 +190,10 @@ El dashboard usa exclusivamente `tenders_normalized` con `enriched=true`. Esto e
 `/api/admin/cleanup-cache` tambien requiere `ADMIN_API_KEY`, pero no llama Mercado Publico. Solo elimina cache vencido antiguo y logs operativos antiguos.
 
 `/api/admin/rebuild-catalogs` reconstruye catalogos internos desde datos ya existentes en Supabase. No consume cuota de Mercado Publico y usa `upsert` idempotente por claves internas estables.
+
+`/api/admin/catalog-quality` calcula métricas de completitud y alertas simples sobre los catálogos. No modifica datos ni llama servicios externos.
+
+El dashboard reutiliza ese mismo servicio para mostrar `Inteligencia de compra publica`: totales de catalogos, monto comprado, rankings por monto, ordenes enriquecidas/pendientes/fallidas y alertas de calidad sin hacer llamadas a Mercado Publico.
 
 ## Cache operativo
 
