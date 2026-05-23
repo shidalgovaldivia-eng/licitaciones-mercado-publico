@@ -161,6 +161,7 @@ Endpoints administrativos:
 - `POST /api/admin/enrich-tenders`
 - `POST /api/admin/enrich-purchase-orders`
 - `GET /api/admin/enrichment-status`
+- `GET /api/cron/enrich-tenders`
 - `POST /api/admin/cleanup-cache`
 
 Los endpoints de enriquecimiento:
@@ -175,6 +176,8 @@ Los endpoints de enriquecimiento:
 El dashboard usa exclusivamente `tenders_normalized` con `enriched=true`. Esto evita estadisticas basadas en listados parciales y reduce apariciones de datos como "No informado".
 
 `/api/admin/enrichment-status` muestra avance operacional: total listado/cacheado, total normalizado, pendientes, porcentaje enriquecido y llamadas externas del dia.
+
+`/api/cron/enrich-tenders` ejecuta el mismo pipeline en segundo plano con lotes conservadores. Esta ruta esta pensada para Vercel Cron, requiere `Authorization: Bearer <CRON_SECRET>`, usa lock en Supabase para evitar ejecuciones paralelas y registra estado de enriquecimiento por licitacion.
 
 `/api/admin/cleanup-cache` tambien requiere `ADMIN_API_KEY`, pero no llama Mercado Publico. Solo elimina cache vencido antiguo y logs operativos antiguos.
 

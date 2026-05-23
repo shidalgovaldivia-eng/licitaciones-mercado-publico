@@ -52,6 +52,9 @@ export async function upsertNormalizedTender(tender: TenderDetail) {
       close_date: toIsoOrNull(tender.closeDate),
       enriched: true,
       enriched_at: now,
+      enrichment_status: "enriched",
+      enrichment_error: null,
+      retry_count: 0,
       normalized: tender,
       updated_at: now
     },
@@ -115,6 +118,9 @@ export async function upsertPendingTenders(tenders: TenderListItem[]) {
         publish_date: toIsoOrNull(tender.publishDate),
         close_date: toIsoOrNull(tender.closeDate),
         enriched: false,
+        enrichment_status: "pending",
+        enrichment_error: null,
+        retry_count: 0,
         normalized: tender,
         updated_at: now
       })),
@@ -201,6 +207,130 @@ export async function getPendingTenderCodes(limit: number) {
 
   if (error) throw new Error(error.message);
   return (data ?? []).map((row: { code: string }) => row.code);
+}
+
+export async function getProcessableTenderCodes(limit: number, maxRetries: number) {
+  if (limit <= 0) return [];
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("tenders_normalized")
+    .select("code")
+    .eq("enriched", false)
+    .in("enrichment_status", ["pending", "failed"])
+    .lt("retry_count", maxRetries)
+    .order("retry_count", { ascending: true })
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: { code: string }) => row.code);
+}
+
+export async function resetStaleTenderEnrichment(ageMinutes = 30) {
+  const supabase = createServiceClient();
+  const cutoff = new Date(Date.now() - ageMinutes * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from("tenders_normalized")
+    .update({
+      enrichment_status: "failed",
+      enrichment_error: "Enrichment quedo en running y fue marcado como stale.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("enriched", false)
+    .eq("enrichment_status", "running")
+    .lt("updated_at", cutoff);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markTenderEnrichmentRunning(codes: string[]) {
+  if (codes.length === 0) return;
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("tenders_normalized")
+    .update({
+      enrichment_status: "running",
+      enrichment_error: null,
+      updated_at: new Date().toISOString()
+    })
+    .in("code", codes);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markTenderEnrichmentFailed(code: string, message: string) {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("tenders_normalized")
+    .select("retry_count")
+    .eq("code", code)
+    .maybeSingle();
+
+  const retryCount = typeof data?.retry_count === "number" ? data.retry_count + 1 : 1;
+  const { error } = await supabase
+    .from("tenders_normalized")
+    .update({
+      enrichment_status: "failed",
+      enrichment_error: message.slice(0, 500),
+      retry_count: retryCount,
+      updated_at: new Date().toISOString()
+    })
+    .eq("code", code);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function acquireEnrichmentLock(name: string, ttlSeconds = 900) {
+  const supabase = createServiceClient();
+  const now = new Date();
+  const lockedUntil = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+  const owner = `${name}:${now.toISOString()}`;
+
+  const insert = await supabase
+    .from("enrichment_locks")
+    .insert({
+      name,
+      locked_at: now.toISOString(),
+      locked_until: lockedUntil,
+      owner,
+      updated_at: now.toISOString()
+    })
+    .select("name, owner, locked_until")
+    .maybeSingle();
+
+  if (!insert.error && insert.data) {
+    return { acquired: true, owner, lockedUntil };
+  }
+
+  const update = await supabase
+    .from("enrichment_locks")
+    .update({
+      locked_at: now.toISOString(),
+      locked_until: lockedUntil,
+      owner,
+      updated_at: now.toISOString()
+    })
+    .eq("name", name)
+    .lt("locked_until", now.toISOString())
+    .select("name, owner, locked_until")
+    .maybeSingle();
+
+  if (update.error) throw new Error(update.error.message);
+  return { acquired: Boolean(update.data), owner, lockedUntil };
+}
+
+export async function releaseEnrichmentLock(name: string, owner: string) {
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("enrichment_locks")
+    .update({
+      locked_until: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq("name", name)
+    .eq("owner", owner);
+
+  if (error) throw new Error(error.message);
 }
 
 export async function getNormalizedTendersByCodes(codes: string[]) {

@@ -98,6 +98,26 @@ create index if not exists tenders_normalized_close_date_idx
 create index if not exists tenders_normalized_buyer_name_idx
   on public.tenders_normalized (buyer_name);
 
+alter table public.tenders_normalized
+  add column if not exists enrichment_status text not null default 'pending';
+
+alter table public.tenders_normalized
+  add column if not exists enrichment_error text;
+
+alter table public.tenders_normalized
+  add column if not exists retry_count integer not null default 0;
+
+create index if not exists tenders_normalized_enrichment_queue_idx
+  on public.tenders_normalized (enriched, enrichment_status, retry_count, updated_at);
+
+create table if not exists public.enrichment_locks (
+  name text primary key,
+  locked_at timestamptz not null default now(),
+  locked_until timestamptz not null,
+  owner text,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.purchase_orders_normalized (
   code text primary key,
   name text not null,
@@ -137,6 +157,7 @@ alter table public.licitaciones_cache enable row level security;
 alter table public.api_request_log enable row level security;
 alter table public.tenders_normalized enable row level security;
 alter table public.purchase_orders_normalized enable row level security;
+alter table public.enrichment_locks enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 
@@ -147,6 +168,7 @@ grant select, insert, update, delete on public.licitaciones_cache to service_rol
 grant select, insert, delete on public.api_request_log to service_role;
 grant select, insert, update, delete on public.tenders_normalized to service_role;
 grant select, insert, update, delete on public.purchase_orders_normalized to service_role;
+grant select, insert, update, delete on public.enrichment_locks to service_role;
 
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.favorite_tenders to authenticated;

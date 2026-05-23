@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/enrich-tenders",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

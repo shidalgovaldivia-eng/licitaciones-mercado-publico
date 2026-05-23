@@ -5,7 +5,8 @@ export const ENV_KEYS = {
   supabaseServiceRoleKey: "SUPABASE_SERVICE_ROLE_KEY",
   mercadoPublicoDailyLimit: "MERCADO_PUBLICO_DAILY_LIMIT",
   mercadoPublicoCacheTtlMinutes: "MERCADO_PUBLICO_CACHE_TTL_MINUTES",
-  adminApiKey: "ADMIN_API_KEY"
+  adminApiKey: "ADMIN_API_KEY",
+  cronSecret: "CRON_SECRET"
 } as const;
 
 export type EnvKey = (typeof ENV_KEYS)[keyof typeof ENV_KEYS];
@@ -51,6 +52,7 @@ export function getEnvStatus() {
   const supabaseAnonKey = readEnv(ENV_KEYS.supabaseAnonKey);
   const supabaseServiceRoleKey = readEnv(ENV_KEYS.supabaseServiceRoleKey);
   const adminApiKey = readEnv(ENV_KEYS.adminApiKey);
+  const cronSecret = readEnv(ENV_KEYS.cronSecret);
 
   return {
     mercadoPublicoTicket: Boolean(mercadoPublicoTicket),
@@ -58,6 +60,7 @@ export function getEnvStatus() {
     supabaseAnonKey: Boolean(supabaseAnonKey),
     supabaseServiceRoleKey: Boolean(supabaseServiceRoleKey),
     adminApiKey: Boolean(adminApiKey),
+    cronSecret: Boolean(cronSecret),
     validSupabaseUrl: Boolean(supabaseUrl && isValidUrl(supabaseUrl)),
     validSupabaseAnonKey: Boolean(supabaseAnonKey && !supabaseAnonKey.startsWith("http")),
     validMercadoPublicoTicket: Boolean(mercadoPublicoTicket && mercadoPublicoTicket.length >= 20),

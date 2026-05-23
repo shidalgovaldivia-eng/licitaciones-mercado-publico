@@ -50,6 +50,109 @@ Recomendacion inicial:
 - Revisar `/api/admin/api-usage` antes y despues si se quiere auditar actividad.
 - No automatizar hasta tener claro el volumen real en produccion.
 
+## Enriquecimiento automatizado
+
+La app incluye un endpoint para ejecutar enriquecimiento en segundo plano:
+
+```http
+GET /api/cron/enrich-tenders
+```
+
+Proteccion:
+
+- Requiere `CRON_SECRET`.
+- Debe enviarse como `Authorization: Bearer <CRON_SECRET>`.
+- No usa secretos por query string.
+- En Vercel Cron, si `CRON_SECRET` existe como variable de entorno, Vercel envia automaticamente el header `Authorization: Bearer <CRON_SECRET>`.
+
+Configuracion Vercel:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/enrich-tenders",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+```
+
+Este cron corre una vez por hora y procesa hasta 100 detalles por ejecucion. Es una configuracion conservadora para no gastar la cuota diaria de Mercado Publico rapidamente.
+
+La ruta cron usa limites fijos conservadores:
+
+- `limit=50`
+- `batches=2`
+- maximo 100 detalles por ejecucion
+
+El endpoint admin mantiene parametros manuales:
+
+Para ejecuciones manuales mas grandes:
+
+```bash
+curl -X POST "https://TU_DOMINIO/api/admin/enrich-tenders?limit=100&batches=5" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+```
+
+Revisar avance:
+
+```bash
+curl "https://TU_DOMINIO/api/admin/enrichment-status" \
+  -H "x-admin-api-key: TU_ADMIN_API_KEY"
+```
+
+Probar cron localmente:
+
+```bash
+curl -X POST "http://localhost:3000/api/cron/enrich-tenders" \
+  -H "Authorization: Bearer TU_CRON_SECRET"
+```
+
+La respuesta incluye:
+
+- `processed`: codigos intentados.
+- `updated`: licitaciones enriquecidas correctamente.
+- `failed`: fallidas.
+- `skipped`: cupos no usados porque no habia pendientes.
+- `durationMs`: duracion total.
+- `requestsToday`: llamadas externas registradas hoy.
+
+Control de concurrencia:
+
+- Se usa la tabla `enrichment_locks`.
+- Si el cron ya esta corriendo, una segunda ejecucion responde `locked=true` y no procesa.
+- Si un proceso queda pegado, el lock expira a los 15 minutos.
+
+Control de reintentos:
+
+- Cada licitacion normalizada tiene `enrichment_status`, `enrichment_error` y `retry_count`.
+- Solo se procesan registros `pending` o `failed`.
+- No se procesan registros con `retry_count >= 3`.
+- Registros `running` antiguos se marcan como `failed` para evitar que queden bloqueados.
+
+## Riesgos de crecimiento
+
+Tablas que mas pueden crecer:
+
+- `licitaciones_cache`: guarda respuestas crudas, incluyendo listados y detalles.
+- `api_request_log`: guarda cada lectura cache/API para visibilidad operacional.
+- `tenders_normalized`: guarda campos normalizados y snapshot JSONB del detalle.
+
+Mitigaciones:
+
+- Mantener lotes cron acotados.
+- Borrar cache vencido con `/api/admin/cleanup-cache`.
+- Borrar logs antiguos mayor a 30 dias.
+- No enriquecer todo en requests de usuario.
+- Si la base crece demasiado, reducir el campo JSONB `normalized` a campos estrictamente necesarios.
+
+Recomendacion inicial:
+
+- Cron horario `limit=50&batches=2`.
+- Ejecuciones manuales grandes solo en horario bajo trafico.
+- Monitorear `/api/admin/performance` y `/api/admin/enrichment-status`.
+
 ## Consideraciones
 
 - No borra tablas normalizadas.
