@@ -5,6 +5,26 @@ import { searchOrdenesCompra } from "@/services/mercadoPublico";
 
 type UnknownRecord = Record<string, unknown>;
 
+const PURCHASE_ORDER_API_STATES: Record<string, string> = {
+  "4": "enviadaproveedor",
+  enviadaproveedor: "enviadaproveedor",
+  "5": "enproceso",
+  enproceso: "enproceso",
+  "6": "aceptada",
+  aceptada: "aceptada",
+  "9": "cancelada",
+  cancelada: "cancelada",
+  "12": "recepcionconforme",
+  recepcionconforme: "recepcionconforme",
+  "13": "pendienterecepcion",
+  pendienterecepcion: "pendienterecepcion",
+  "14": "recepcionadaparcialmente",
+  recepcionadaparcialmente: "recepcionadaparcialmente",
+  "15": "recepcionconformeincompleta",
+  recepcionconformeincompleta: "recepcionconformeincompleta",
+  todos: "todos"
+};
+
 export type PurchaseOrderSearchParams = {
   codigo?: string;
   fecha?: string;
@@ -153,9 +173,9 @@ function toApiParams(params: PurchaseOrderSearchParams) {
   return {
     codigo: params.codigo,
     fecha: params.fecha ? toMercadoPublicoDate(params.fecha) : undefined,
-    estado: params.estado,
-    CodigoOrganismo: params.comprador,
-    CodigoProveedor: params.proveedor
+    estado: mapPurchaseOrderApiState(params.estado),
+    CodigoOrganismo: params.fecha ? params.comprador : undefined,
+    CodigoProveedor: params.fecha ? params.proveedor : undefined
   };
 }
 
@@ -184,6 +204,19 @@ function firstString(...values: unknown[]) {
     if (parsed) return parsed;
   }
   return undefined;
+}
+
+function mapPurchaseOrderApiState(value?: string) {
+  if (!value) return undefined;
+  return PURCHASE_ORDER_API_STATES[normalizeStateKey(value)] ?? value;
+}
+
+function normalizeStateKey(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 function cleanText(value?: string) {

@@ -37,11 +37,11 @@ const MAX_ENRICH_CODES_PER_PAGE = 20;
 
 const statusOptions = [
   { value: "", label: "Todos los estados" },
-  { value: "4", label: "Enviada a proveedor" },
-  { value: "6", label: "Aceptada" },
-  { value: "9", label: "Cancelada" },
-  { value: "12", label: "Recepcion conforme" },
-  { value: "13", label: "Pendiente recepcion" }
+  { value: "enviadaproveedor", label: "Enviada a proveedor" },
+  { value: "aceptada", label: "Aceptada" },
+  { value: "cancelada", label: "Cancelada" },
+  { value: "recepcionconforme", label: "Recepcion conforme" },
+  { value: "pendienterecepcion", label: "Pendiente recepcion" }
 ];
 
 export function PurchaseOrdersShell() {

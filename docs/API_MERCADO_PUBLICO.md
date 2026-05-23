@@ -105,6 +105,8 @@ Endpoint:
 GET /publico/ordenesdecompra.json
 ```
 
+Nota de parámetros: la documentación oficial muestra `CodigoOrganismo` y `CodigoProveedor` combinados con `fecha`. En la app solo se envían estos filtros a Mercado Público cuando existe fecha. Los estados elegidos en la UI se traducen a los valores textuales documentados antes de llamar la API.
+
 Parámetros soportados documentados:
 
 | Parámetro | Uso | Ejemplo |
@@ -129,6 +131,19 @@ Estados documentados:
 | `14` | Recepcionada parcialmente |
 | `15` | Recepción conforme incompleta |
 | `todos` | Todos |
+
+Mapeo usado por la app:
+
+| UI / Codigo | Valor enviado a API |
+| --- | --- |
+| `4` | `enviadaproveedor` |
+| `5` | `enproceso` |
+| `6` | `aceptada` |
+| `9` | `cancelada` |
+| `12` | `recepcionconforme` |
+| `13` | `pendienterecepcion` |
+| `14` | `recepcionadaparcialmente` |
+| `15` | `recepcionconformeincompleta` |
 
 Ejemplos:
 
@@ -173,6 +188,7 @@ Endpoints internos:
 | `GET /api/purchase-orders` | Listado paginado con filtros `codigo`, `fecha`, `estado`, `q`, `comprador`, `proveedor`. |
 | `GET /api/purchase-orders/[code]` | Detalle normalizado por codigo. |
 | `GET /api/purchase-orders/[code]/full` | Detalle normalizado, respuesta cruda y metadata de cache. |
+| `POST /api/purchase-orders/enrich` | Enriquecimiento progresivo por lote, maximo 20 codigos por request. |
 
 Recursos de cache/log:
 
@@ -190,6 +206,8 @@ Campos normalizados en detalle:
 - items: `Items.Listado[].Categoria`, `Producto`, `EspecificacionComprador`, `Cantidad`, `Moneda`, `PrecioNeto`.
 
 Los nombres de proveedor se limpian con `normalizeHtmlEntities()` porque Mercado Publico puede devolver entidades como `SOCIEDAD M&amp;F SPA`.
+
+El listado de ordenes puede venir incompleto. La app carga rapido la pagina visible y luego consulta detalles en background con `/api/purchase-orders/enrich`, guardando resultados normalizados en `purchase_orders_normalized` mediante `upsert` por `code`.
 
 ## Organismos compradores
 
