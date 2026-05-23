@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/enrich-tenders",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-purchase-orders",
+      "schedule": "20 * * * *"
     }
   ]
 }

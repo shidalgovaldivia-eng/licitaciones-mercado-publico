@@ -149,6 +149,9 @@ Tablas:
 
 - `tenders_normalized`: licitaciones con comprador, region, fechas, monto interpretado y payload normalizado.
 - `purchase_orders_normalized`: ordenes de compra con comprador, proveedor, totales, fechas y payload normalizado.
+- `buyers_normalized`: catalogo interno de organismos compradores derivado desde licitaciones y ordenes.
+- `suppliers_normalized`: catalogo interno de proveedores derivado desde ordenes de compra.
+- `categories_normalized`: catalogo interno de categorias derivado desde items/categorias normalizadas.
 
 Campos de control:
 
@@ -162,7 +165,9 @@ Endpoints administrativos:
 - `POST /api/admin/enrich-purchase-orders`
 - `GET /api/admin/enrichment-status`
 - `GET /api/cron/enrich-tenders`
+- `GET|POST /api/cron/enrich-purchase-orders`
 - `POST /api/admin/cleanup-cache`
+- `POST /api/admin/rebuild-catalogs`
 
 Los endpoints de enriquecimiento:
 
@@ -179,7 +184,11 @@ El dashboard usa exclusivamente `tenders_normalized` con `enriched=true`. Esto e
 
 `/api/cron/enrich-tenders` ejecuta el mismo pipeline en segundo plano con lotes conservadores. Esta ruta esta pensada para Vercel Cron, requiere `Authorization: Bearer <CRON_SECRET>`, usa lock en Supabase para evitar ejecuciones paralelas y registra estado de enriquecimiento por licitacion.
 
+`/api/cron/enrich-purchase-orders` aplica el mismo patron para ordenes de compra con lock independiente `purchase_orders_enrichment`, lote horario conservador `limit=25&batches=1` y `upsert` por `code`.
+
 `/api/admin/cleanup-cache` tambien requiere `ADMIN_API_KEY`, pero no llama Mercado Publico. Solo elimina cache vencido antiguo y logs operativos antiguos.
+
+`/api/admin/rebuild-catalogs` reconstruye catalogos internos desde datos ya existentes en Supabase. No consume cuota de Mercado Publico y usa `upsert` idempotente por claves internas estables.
 
 ## Cache operativo
 

@@ -109,6 +109,20 @@ curl -X POST "http://localhost:3000/api/cron/enrich-tenders" \
   -H "Authorization: Bearer TU_CRON_SECRET"
 ```
 
+Probar cron de ordenes de compra localmente:
+
+```bash
+curl -X POST "http://localhost:3000/api/cron/enrich-purchase-orders" \
+  -H "Authorization: Bearer TU_CRON_SECRET"
+```
+
+La ruta cron de ordenes usa limites fijos conservadores:
+
+- `limit=25`
+- `batches=1`
+- maximo 25 detalles por ejecucion normal
+- lock `purchase_orders_enrichment`
+
 ## Enriquecimiento progresivo de ordenes de compra
 
 `/ordenes-compra` carga primero el listado rapido de Mercado Publico. Ese listado puede venir incompleto porque la API normalmente entrega solo codigo, nombre y estado.
@@ -145,10 +159,13 @@ Control de concurrencia:
 - Se usa la tabla `enrichment_locks`.
 - Si el cron ya esta corriendo, una segunda ejecucion responde `locked=true` y no procesa.
 - Si un proceso queda pegado, el lock expira a los 15 minutos.
+- Licitaciones usan lock `tenders_enrichment`.
+- Ordenes de compra usan lock `purchase_orders_enrichment`.
 
 Control de reintentos:
 
 - Cada licitacion normalizada tiene `enrichment_status`, `enrichment_error` y `retry_count`.
+- Cada orden de compra normalizada usa los mismos campos de control.
 - Solo se procesan registros `pending` o `failed`.
 - No se procesan registros con `retry_count >= 3`.
 - Registros `running` antiguos se marcan como `failed` para evitar que queden bloqueados.

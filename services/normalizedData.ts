@@ -40,6 +40,9 @@ export type NormalizedPurchaseOrderRow = {
   buyer_name?: string;
   supplier_code?: string;
   supplier_name?: string;
+  tender_code?: string;
+  category?: string;
+  region?: string;
   type?: string;
   currency?: string;
   net_total?: number;
@@ -169,6 +172,9 @@ export async function upsertNormalizedPurchaseOrder(order: PurchaseOrderDetail) 
       buyer_name: order.buyer.name,
       supplier_code: order.supplier.code,
       supplier_name: order.supplier.name,
+      tender_code: order.tenderCode,
+      category: firstPurchaseOrderCategory(order),
+      region: order.buyer.region ?? order.supplier.region,
       type: order.type,
       currency: order.currency,
       net_total: order.netTotal,
@@ -177,6 +183,9 @@ export async function upsertNormalizedPurchaseOrder(order: PurchaseOrderDetail) 
       sent_at: toIsoOrNull(order.sentAt ?? order.dates.sentAt),
       enriched: true,
       enriched_at: now,
+      enrichment_status: "enriched",
+      enrichment_error: null,
+      retry_count: 0,
       normalized: order,
       updated_at: now
     },
@@ -197,11 +206,17 @@ export async function upsertPendingPurchaseOrder(order: PurchaseOrderListItem) {
       status_label: order.statusLabel,
       buyer_name: order.buyerName,
       supplier_name: order.supplierName,
+      tender_code: order.tenderCode,
+      category: undefined,
+      region: undefined,
       type: order.type,
       currency: order.currency,
       gross_total: order.total,
       sent_at: toIsoOrNull(order.sentAt),
       enriched: false,
+      enrichment_status: "pending",
+      enrichment_error: null,
+      retry_count: 0,
       normalized: order,
       updated_at: now
     },
@@ -209,6 +224,43 @@ export async function upsertPendingPurchaseOrder(order: PurchaseOrderListItem) {
   );
 
   if (error) throw new Error(error.message);
+}
+
+export async function upsertPendingPurchaseOrders(orders: PurchaseOrderListItem[]) {
+  if (orders.length === 0) return;
+
+  const now = new Date().toISOString();
+  const supabase = createServiceClient();
+
+  for (let index = 0; index < orders.length; index += 500) {
+    const chunk = orders.slice(index, index + 500);
+    const { error } = await supabase.from("purchase_orders_normalized").upsert(
+      chunk.map((order) => ({
+        code: order.code,
+        name: order.name,
+        status_code: order.statusCode,
+        status_label: order.statusLabel,
+        buyer_name: order.buyerName,
+        supplier_name: order.supplierName,
+        tender_code: order.tenderCode,
+        category: undefined,
+        region: undefined,
+        type: order.type,
+        currency: order.currency,
+        gross_total: order.total,
+        sent_at: toIsoOrNull(order.sentAt),
+        enriched: false,
+        enrichment_status: "pending",
+        enrichment_error: null,
+        retry_count: 0,
+        normalized: order,
+        updated_at: now
+      })),
+      { onConflict: "code", ignoreDuplicates: true }
+    );
+
+    if (error) throw new Error(error.message);
+  }
 }
 
 export async function getEnrichedTenderCodes(codes: string[]) {
@@ -392,6 +444,79 @@ export async function getEnrichedPurchaseOrderCodes(codes: string[]) {
   return new Set((data ?? []).map((row: { code: string }) => row.code));
 }
 
+export async function getProcessablePurchaseOrderCodes(limit: number, maxRetries: number) {
+  if (limit <= 0) return [];
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("purchase_orders_normalized")
+    .select("code")
+    .or("enriched.eq.false,enriched.is.null")
+    .in("enrichment_status", ["pending", "failed"])
+    .lt("retry_count", maxRetries)
+    .order("retry_count", { ascending: true })
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: { code: string }) => row.code);
+}
+
+export async function resetStalePurchaseOrderEnrichment(ageMinutes = 30) {
+  const supabase = createServiceClient();
+  const cutoff = new Date(Date.now() - ageMinutes * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from("purchase_orders_normalized")
+    .update({
+      enrichment_status: "failed",
+      enrichment_error: "Enrichment quedo en running y fue marcado como stale.",
+      updated_at: new Date().toISOString()
+    })
+    .or("enriched.eq.false,enriched.is.null")
+    .eq("enrichment_status", "running")
+    .lt("updated_at", cutoff);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markPurchaseOrderEnrichmentRunning(codes: string[]) {
+  if (codes.length === 0) return;
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("purchase_orders_normalized")
+    .update({
+      enrichment_status: "running",
+      enrichment_error: null,
+      updated_at: new Date().toISOString()
+    })
+    .in("code", codes)
+    .or("enriched.eq.false,enriched.is.null")
+    .in("enrichment_status", ["pending", "failed"]);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function markPurchaseOrderEnrichmentFailed(code: string, message: string) {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("purchase_orders_normalized")
+    .select("retry_count")
+    .eq("code", code)
+    .maybeSingle();
+
+  const retryCount = typeof data?.retry_count === "number" ? data.retry_count + 1 : 1;
+  const { error } = await supabase
+    .from("purchase_orders_normalized")
+    .update({
+      enrichment_status: "failed",
+      enrichment_error: message.slice(0, 500),
+      retry_count: retryCount,
+      updated_at: new Date().toISOString()
+    })
+    .eq("code", code);
+
+  if (error) throw new Error(error.message);
+}
+
 export async function getNormalizedPurchaseOrdersByCodes(codes: string[]) {
   const uniqueCodes = Array.from(new Set(codes.filter(Boolean)));
   const orders = new Map<string, PurchaseOrderListItem>();
@@ -431,6 +556,36 @@ export async function readEnrichedTendersForDashboard() {
   return (data ?? []) as NormalizedTenderRow[];
 }
 
+export async function readPurchaseOrdersForDashboard() {
+  const supabase = createServiceClient();
+  const query = () =>
+    supabase
+      .from("purchase_orders_normalized")
+      .select("code, name, status_code, status_label, buyer_name, supplier_name, tender_code, category, region, gross_total, currency, sent_at, enriched, normalized")
+      .eq("enriched", true)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+
+  const { data, error } = await query();
+
+  if (error && isMissingColumnError(error, "tender_code")) {
+    const fallback = await supabase
+      .from("purchase_orders_normalized")
+      .select("code, name, status_code, status_label, buyer_name, supplier_name, gross_total, currency, sent_at, enriched, normalized")
+      .eq("enriched", true)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+
+    if (fallback.error && isMissingTableError(fallback.error)) return [];
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []) as NormalizedPurchaseOrderRow[];
+  }
+
+  if (error && isMissingTableError(error)) return [];
+  if (error) throw new Error(error.message);
+  return (data ?? []) as NormalizedPurchaseOrderRow[];
+}
+
 export async function getNormalizationMetrics() {
   const supabase = createServiceClient();
   const [tendersTotal, tendersEnriched, purchaseOrdersTotal, purchaseOrdersEnriched] = await Promise.all([
@@ -459,6 +614,11 @@ export async function getNormalizationMetrics() {
 
 function isMissingTableError(error: SupabaseQueryError) {
   return error.code === "PGRST205" || error.message.toLowerCase().includes("could not find the table");
+}
+
+function isMissingColumnError(error: SupabaseQueryError, column: string) {
+  const message = error.message.toLowerCase();
+  return message.includes(`.${column}`) && message.includes("does not exist");
 }
 
 function normalizedTenderRowToListItem(row: NormalizedTenderRow): TenderListItem {
@@ -505,8 +665,13 @@ function normalizedPurchaseOrderRowToListItem(row: NormalizedPurchaseOrderRow): 
     supplierName: row.supplier_name,
     total: row.gross_total,
     currency: row.currency,
-    sentAt: row.sent_at
+    sentAt: row.sent_at,
+    tenderCode: row.tender_code
   };
+}
+
+function firstPurchaseOrderCategory(order: PurchaseOrderDetail) {
+  return order.items.find((item) => item.category)?.category;
 }
 
 function buildMetric(total: number, enriched: number) {

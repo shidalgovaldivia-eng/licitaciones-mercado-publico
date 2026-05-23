@@ -13,7 +13,9 @@ import {
   Database,
   FileText,
   Gauge,
+  HandCoins,
   LayoutDashboard,
+  Link2,
   Search,
   Server,
   ShieldCheck,
@@ -118,6 +120,8 @@ export default async function DashboardPage() {
 
           <FilterSurface />
 
+          <PurchaseOrderActivity summary={summary} />
+
           {summary.totalActiveTenders === 0 ? (
             <Card className="border-amber-200 bg-amber-50 text-amber-900 shadow-none">
               <CardContent className="flex items-start gap-3 p-4 text-sm">
@@ -137,6 +141,89 @@ export default async function DashboardPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function PurchaseOrderActivity({ summary }: { summary: Awaited<ReturnType<typeof getDashboardSummary>> }) {
+  const activity = summary.purchaseOrderActivity;
+  const hasOrders = activity.recentTotal > 0;
+
+  return (
+    <Card className="border-white/80 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <ShoppingCart className="h-4 w-4 text-ocean" />
+            Actividad de compra pública
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">Órdenes de compra normalizadas</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Compras reales emitidas por el Estado, calculadas desde datos normalizados en Supabase.
+          </p>
+        </div>
+        <StatusChip icon={<Database className="h-3.5 w-3.5" />} label={`${activity.enrichedPercent}% enriquecidas`} tone="slate" />
+      </div>
+
+      {hasOrders ? (
+        <CardContent className="space-y-5 p-5">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniMetric icon={<ShoppingCart className="h-4 w-4" />} label="Órdenes recientes" value={formatNumber(activity.recentTotal)} />
+            <MiniMetric icon={<HandCoins className="h-4 w-4" />} label="Monto comprado" value={formatCurrency(activity.grossTotal)} />
+            <MiniMetric icon={<Link2 className="h-4 w-4" />} label="Vinculadas a licitación" value={formatNumber(activity.linkedToTenders)} />
+            <MiniMetric icon={<Database className="h-4 w-4" />} label="Normalización OC" value={`${summary.normalization.purchaseOrders.enrichedPercent}%`} />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-3">
+            <BucketPanel title="Top organismos compradores" rows={activity.topBuyers} empty="Sin compradores normalizados." />
+            <BucketPanel title="Top proveedores" rows={activity.topSuppliers} empty="Sin proveedores normalizados." />
+            <BucketPanel title="Órdenes por estado" rows={activity.byStatus} empty="Sin estados normalizados." />
+          </section>
+        </CardContent>
+      ) : (
+        <CardContent className="p-8">
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+            <p className="font-semibold text-ink">Datos de órdenes en preparación</p>
+            <p className="mt-1">
+              Ejecuta el enriquecimiento de órdenes o espera el cron horario para poblar métricas de compradores, proveedores y montos.
+            </p>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function MiniMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <span className="text-ocean">{icon}</span>
+        {label}
+      </div>
+      <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-ink">{value}</p>
+    </div>
+  );
+}
+
+function BucketPanel({ title, rows, empty }: { title: string; rows: SummaryBucket[]; empty: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      <div className="mt-4 space-y-3">
+        {rows.length > 0 ? (
+          rows.slice(0, 5).map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate text-slate-600">{row.label}</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                {formatNumber(row.value)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-slate-500">{empty}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -459,6 +546,14 @@ function ProgressBar({ value, className, barClassName, compact }: { value: numbe
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("es-CL").format(value);
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0
+  }).format(value);
 }
 
 function formatTime(value: string) {

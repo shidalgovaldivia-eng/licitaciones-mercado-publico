@@ -1,5 +1,11 @@
 import "server-only";
-import { getNormalizationMetrics, readEnrichedTendersForDashboard, type NormalizedTenderRow } from "@/services/normalizedData";
+import {
+  getNormalizationMetrics,
+  readEnrichedTendersForDashboard,
+  readPurchaseOrdersForDashboard,
+  type NormalizedPurchaseOrderRow,
+  type NormalizedTenderRow
+} from "@/services/normalizedData";
 
 const STOP_WORDS = new Set([
   "a",
@@ -36,10 +42,21 @@ export type DashboardSummary = {
   topStatuses: SummaryBucket[];
   topWords: SummaryBucket[];
   closingByDate: SummaryBucket[];
+  purchaseOrderActivity: PurchaseOrderActivitySummary;
   normalization: {
     tenders: NormalizationMetric;
     purchaseOrders: NormalizationMetric;
   };
+};
+
+export type PurchaseOrderActivitySummary = {
+  recentTotal: number;
+  grossTotal: number;
+  topBuyers: SummaryBucket[];
+  topSuppliers: SummaryBucket[];
+  byStatus: SummaryBucket[];
+  linkedToTenders: number;
+  enrichedPercent: number;
 };
 
 export type SummaryBucket = {
@@ -55,12 +72,14 @@ export type NormalizationMetric = {
 };
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const [tenders, normalization] = await Promise.all([
+  const [tenders, purchaseOrders, normalization] = await Promise.all([
     readEnrichedTendersForDashboard(),
+    readPurchaseOrdersForDashboard(),
     getNormalizationMetrics()
   ]);
 
   const activeTenders = tenders.filter(isActiveTender);
+  const recentPurchaseOrders = filterRecentPurchaseOrders(purchaseOrders);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -71,6 +90,15 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     topStatuses: topBuckets(activeTenders.map((tender) => tender.status_label || "Sin estado"), 8),
     topWords: topWords(activeTenders, 12),
     closingByDate: closingByDate(activeTenders),
+    purchaseOrderActivity: {
+      recentTotal: recentPurchaseOrders.length,
+      grossTotal: sumPurchaseOrderTotal(recentPurchaseOrders),
+      topBuyers: topBuckets(recentPurchaseOrders.map((order) => order.buyer_name).filter(isPresent), 6),
+      topSuppliers: topBuckets(recentPurchaseOrders.map((order) => order.supplier_name).filter(isPresent), 6),
+      byStatus: topBuckets(recentPurchaseOrders.map((order) => order.status_label || "Sin estado"), 6),
+      linkedToTenders: recentPurchaseOrders.filter(hasLinkedTender).length,
+      enrichedPercent: normalization.purchaseOrders.enrichedPercent
+    },
     normalization
   };
 }
@@ -126,6 +154,24 @@ function closingByDate(tenders: NormalizedTenderRow[]) {
     .filter(isPresent);
 
   return topBuckets(dates, 14).sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function filterRecentPurchaseOrders(orders: NormalizedPurchaseOrderRow[]) {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const dated = orders.filter((order) => {
+    const time = order.sent_at ? new Date(order.sent_at).getTime() : Number.NaN;
+    return Number.isFinite(time) && time >= cutoff;
+  });
+
+  return dated.length > 0 ? dated : orders;
+}
+
+function sumPurchaseOrderTotal(orders: NormalizedPurchaseOrderRow[]) {
+  return orders.reduce((sum, order) => sum + (typeof order.gross_total === "number" ? order.gross_total : 0), 0);
+}
+
+function hasLinkedTender(order: NormalizedPurchaseOrderRow) {
+  return isPresent(order.tender_code) || isPresent(order.normalized?.tenderCode);
 }
 
 function normalizeText(value: string) {
