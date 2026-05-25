@@ -16,8 +16,8 @@ async function runCron(request: Request) {
 
   try {
     const result = await enrichTendersBatch({
-      limit: 50,
-      batches: 2
+      limit: 20,
+      batches: 1
     });
 
     return NextResponse.json({

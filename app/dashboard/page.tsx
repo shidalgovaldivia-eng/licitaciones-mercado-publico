@@ -187,7 +187,7 @@ function PurchaseOrderActivity({ summary }: { summary: Awaited<ReturnType<typeof
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
             <p className="font-semibold text-ink">Datos de órdenes en preparación</p>
             <p className="mt-1">
-              Ejecuta el enriquecimiento de órdenes o espera el cron horario para poblar métricas de compradores, proveedores y montos.
+              Ejecuta el enriquecimiento de órdenes o espera el cron diario para poblar métricas de compradores, proveedores y montos.
             </p>
           </div>
         </CardContent>

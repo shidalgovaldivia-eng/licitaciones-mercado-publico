@@ -18,7 +18,8 @@ const MAX_LIMIT = 100;
 const MAX_BATCHES = 5;
 const MAX_DETAILS_PER_REQUEST = 500;
 const MAX_RETRIES = 3;
-const ENRICH_CONCURRENCY = 4;
+const ENRICH_CONCURRENCY = 1;
+const DETAIL_REQUEST_INTERVAL_MS = 1_250;
 const LOCK_NAME = "tenders_enrichment";
 const LOCK_TTL_SECONDS = 15 * 60;
 
@@ -82,6 +83,10 @@ export async function enrichTendersBatch(options: TenderEnrichmentOptions = {}) 
           failed.push({ code, error: message });
         }
       }
+
+      if (index + ENRICH_CONCURRENCY < pendingCodes.length) {
+        await sleep(DETAIL_REQUEST_INTERVAL_MS);
+      }
     }
 
     const [metrics, requestsToday] = await Promise.all([
@@ -138,4 +143,8 @@ function clampNumber(value: number | undefined, fallback: number, min: number, m
   const parsed = value ?? fallback;
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

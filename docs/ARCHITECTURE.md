@@ -185,7 +185,7 @@ El dashboard usa exclusivamente `tenders_normalized` con `enriched=true`. Esto e
 
 `/api/cron/enrich-tenders` ejecuta el mismo pipeline en segundo plano con lotes conservadores. Esta ruta esta pensada para Vercel Cron, requiere `Authorization: Bearer <CRON_SECRET>`, usa lock en Supabase para evitar ejecuciones paralelas y registra estado de enriquecimiento por licitacion.
 
-`/api/cron/enrich-purchase-orders` aplica el mismo patron para ordenes de compra con lock independiente `purchase_orders_enrichment`, lote horario conservador `limit=25&batches=1` y `upsert` por `code`.
+`/api/cron/enrich-purchase-orders` aplica el mismo patron para ordenes de compra con lock independiente `purchase_orders_enrichment`, lote diario conservador `limit=25&batches=1` y `upsert` por `code`.
 
 `/api/admin/cleanup-cache` tambien requiere `ADMIN_API_KEY`, pero no llama Mercado Publico. Solo elimina cache vencido antiguo y logs operativos antiguos.
 

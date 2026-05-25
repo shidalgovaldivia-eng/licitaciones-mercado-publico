@@ -72,19 +72,20 @@ Configuracion Vercel:
   "crons": [
     {
       "path": "/api/cron/enrich-tenders",
-      "schedule": "0 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
 ```
 
-Este cron corre una vez por hora y procesa hasta 100 detalles por ejecucion. Es una configuracion conservadora para no gastar la cuota diaria de Mercado Publico rapidamente.
+Este cron corre una vez al dia a las 08:00 UTC y procesa hasta 20 detalles por ejecucion. La frecuencia diaria es compatible con Vercel Hobby; para procesar por hora se requiere un plan que admita crons mas frecuentes.
 
 La ruta cron usa limites fijos conservadores:
 
-- `limit=50`
-- `batches=2`
-- maximo 100 detalles por ejecucion
+- `limit=20`
+- `batches=1`
+- maximo 20 detalles por ejecucion automatica
+- procesa detalles secuencialmente con pausa de 1.25 segundos para evitar rechazos `429` de Mercado Publico
 
 El endpoint admin mantiene parametros manuales:
 
@@ -188,7 +189,7 @@ Mitigaciones:
 
 Recomendacion inicial:
 
-- Cron horario `limit=50&batches=2`.
+- Cron diario `limit=20&batches=1`, compatible con Vercel Hobby y con menor riesgo de rechazo `429` desde Mercado Publico.
 - Ejecuciones manuales grandes solo en horario bajo trafico.
 - Monitorear `/api/admin/performance` y `/api/admin/enrichment-status`.
 
